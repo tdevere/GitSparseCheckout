@@ -1,0 +1,11 @@
+# FolderB File 1
+# SENTINEL: FOLDER_B_FILE1_PRESENT
+
+folder: FolderB
+file_id: b1
+owner: team-b@example-fake.com
+
+# Fake PII for presence testing (not real data):
+# contact_ref: user-id-2200 / dept: team-bravo
+# If this file is present it means FolderB was checked out.
+# In sparse-directories and sparse-patterns targeting CDN only, this should NOT appear.

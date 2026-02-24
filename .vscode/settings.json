@@ -1,0 +1,75 @@
+{
+  // -------------------------------------------------------------------------
+  // Editor defaults
+  // -------------------------------------------------------------------------
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": true,
+  "editor.rulers": [80, 120],
+  "editor.trimAutoWhitespace": true,
+
+  // -------------------------------------------------------------------------
+  // File associations
+  // -------------------------------------------------------------------------
+  "files.associations": {
+    "*.yml": "yaml",
+    "*.yaml": "yaml",
+    "*.ps1": "powershell",
+    "*.sh": "shellscript",
+    "*.json": "json"
+  },
+
+  // -------------------------------------------------------------------------
+  // End-of-line: LF for shell scripts, CRLF for PS on Windows
+  // Default to LF to keep cross-platform scripts portable.
+  // -------------------------------------------------------------------------
+  "files.eol": "\n",
+  "[powershell]": {
+    "files.eol": "\n",
+    "editor.tabSize": 4
+  },
+  "[shellscript]": {
+    "files.eol": "\n",
+    "editor.tabSize": 2
+  },
+  "[yaml]": {
+    "editor.tabSize": 2
+  },
+  "[json]": {
+    "editor.tabSize": 2
+  },
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.tabSize": 2
+  },
+
+  // -------------------------------------------------------------------------
+  // YAML validation: point at Azure DevOps schema for pipeline files
+  // -------------------------------------------------------------------------
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/main/service-schema.json": [
+      ".azuredevops/*.yml",
+      ".azuredevops/*.yaml"
+    ]
+  },
+
+  // -------------------------------------------------------------------------
+  // PowerShell formatting
+  // -------------------------------------------------------------------------
+  "powershell.codeFormatting.preset": "OTBS",
+  "powershell.codeFormatting.addWhitespaceAroundPipe": true,
+  "powershell.codeFormatting.pipelineIndentationStyle": "IncreaseIndentationForFirstPipeline",
+
+  // -------------------------------------------------------------------------
+  // Exclude noise folders from file explorer
+  // -------------------------------------------------------------------------
+  "files.exclude": {
+    "**/.git": true,
+    "**/__pycache__": true
+  },
+
+  // -------------------------------------------------------------------------
+  // Consistent terminal shell
+  // -------------------------------------------------------------------------
+  "terminal.integrated.defaultProfile.windows": "PowerShell"
+}

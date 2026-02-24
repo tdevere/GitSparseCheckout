@@ -1,0 +1,149 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Inspect Workspace (PowerShell – Full)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NonInteractive",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/tools/inspect-workspace.ps1"
+      ],
+      "options": {
+        "env": {
+          "SPARSE_MODE": "FULL-CHECKOUT",
+          "SOURCES_DIR": "${workspaceFolder}"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Inspect Workspace (PowerShell – Sparse Directories)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NonInteractive",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/tools/inspect-workspace.ps1"
+      ],
+      "options": {
+        "env": {
+          "SPARSE_MODE": "SPARSE-DIRECTORIES",
+          "SOURCES_DIR": "${workspaceFolder}"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Inspect Workspace (PowerShell – Sparse Patterns)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NonInteractive",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/tools/inspect-workspace.ps1"
+      ],
+      "options": {
+        "env": {
+          "SPARSE_MODE": "SPARSE-PATTERNS",
+          "SOURCES_DIR": "${workspaceFolder}"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Inspect Workspace (PowerShell – Both/Patterns Win)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NonInteractive",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/tools/inspect-workspace.ps1"
+      ],
+      "options": {
+        "env": {
+          "SPARSE_MODE": "SPARSE-BOTH-PATTERNS-WIN",
+          "SOURCES_DIR": "${workspaceFolder}"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Inspect Workspace (Bash – Full)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/tools/inspect-workspace.sh"],
+      "options": {
+        "env": {
+          "SPARSE_MODE": "FULL-CHECKOUT",
+          "SOURCES_DIR": "${workspaceFolder}"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate YAML files",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NonInteractive",
+        "-NoProfile",
+        "-Command",
+        "Get-ChildItem -Recurse -Filter '*.yml' | ForEach-Object { Write-Host \"Checking: $($_.FullName)\"; [void][System.IO.File]::ReadAllText($_.FullName) }; Write-Host 'All YAML files readable.'"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared",
+        "clear": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

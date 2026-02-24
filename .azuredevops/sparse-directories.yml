@@ -1,0 +1,85 @@
+# =============================================================================
+# sparse-directories.yml – Cone-mode sparse checkout via sparseCheckoutDirectories
+# =============================================================================
+# PURPOSE: Demonstrate git cone-mode sparse checkout targeting CDN/ only.
+#
+# KEY BEHAVIOUR (cone mode):
+#   - CDN/ and all its subdirectories ARE materialized.
+#   - FolderA/ and FolderB/ are NOT materialized.
+#   - Root-level files (RootFile1.yml, RootFile2.yml, config.json, …) ARE
+#     materialized – this is a fundamental property of cone mode: git always
+#     includes root-level tracked files even when requesting subdirectories.
+#
+# EXPECTED evidence in logs:
+#   PRESENT  : CDN/cdnfile1.txt  CDN/nested/cdnfile2.txt  RootFile1.yml  RootFile2.yml
+#   ABSENT   : FolderA/a1.txt   FolderB/b1.txt
+# =============================================================================
+
+name: "SparseDemo_SparseDirectories_$(Build.BuildId)"
+
+trigger: none
+pr: none
+
+variables:
+  - name: agentPoolName
+    value: "Default"         # ← Change to your self-hosted pool name
+  - name: evidenceLabel
+    value: "SPARSE-DIRECTORIES"
+
+pool:
+  name: $(agentPoolName)
+
+jobs:
+  - job: SparseDirectories
+    displayName: "Sparse Checkout – sparseCheckoutDirectories (cone mode)"
+    workspace:
+      clean: all
+    steps:
+
+      # -----------------------------------------------------------------------
+      # 1. Checkout – cone-mode sparse, targeting CDN/ only
+      # -----------------------------------------------------------------------
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        sparseCheckoutDirectories: CDN
+        displayName: "Checkout (sparseCheckoutDirectories: CDN)"
+
+      # -----------------------------------------------------------------------
+      # 2. Environment banner
+      # -----------------------------------------------------------------------
+      - script: |
+          echo "##[section]====== AGENT & ENVIRONMENT INFO ======"
+          echo "Pipeline:          $(Build.DefinitionName)"
+          echo "Evidence Label:    $(evidenceLabel)"
+          echo "Build ID:          $(Build.BuildId)"
+          echo "Agent Name:        $(Agent.Name)"
+          echo "Agent OS:          $(Agent.OS)"
+          echo "Agent Version:     $(Agent.Version)"
+          echo "Sources Dir:       $(Build.SourcesDirectory)"
+          echo "Sparse Mode:       sparseCheckoutDirectories=CDN (CONE MODE)"
+          git --version
+          echo "##[section]====== GIT SPARSE-CHECKOUT STATUS ======"
+          cd "$(Build.SourcesDirectory)"
+          git sparse-checkout list || echo "(sparse-checkout list not available)"
+        displayName: "Print agent and environment info"
+        continueOnError: true
+
+      # -----------------------------------------------------------------------
+      # 3. Workspace inspection – cross-platform
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $env:SPARSE_MODE = "$(evidenceLabel)"
+          $env:SOURCES_DIR = "$(Build.SourcesDirectory)"
+          & "$(Build.SourcesDirectory)/tools/inspect-workspace.ps1"
+        displayName: "Inspect workspace (PowerShell)"
+        condition: eq(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true
+
+      - bash: |
+          export SPARSE_MODE="$(evidenceLabel)"
+          export SOURCES_DIR="$(Build.SourcesDirectory)"
+          bash "$(Build.SourcesDirectory)/tools/inspect-workspace.sh"
+        displayName: "Inspect workspace (Bash)"
+        condition: ne(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true

@@ -1,0 +1,17 @@
+/* CDN Global Stylesheet */
+/* SENTINEL: CDN_STYLES_PRESENT */
+
+:root {
+  --primary-color: #0078d4;
+  --background: #ffffff;
+  --font-stack: "Segoe UI", Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-stack);
+  background-color: var(--background);
+  color: #333;
+}
+
+/* Fake metadata: asset-owner=cdn-team@example-fake.com build=v3.2.1 */
+/* This string proves CDN/styles.css was materialized. */

@@ -1,0 +1,76 @@
+# =============================================================================
+# full-checkout.yml – Normal (full) checkout
+# =============================================================================
+# PURPOSE: Establish a baseline showing ALL repository files materialized.
+# EXPECTED: CDN/, FolderA/, FolderB/ all present; all sentinel files readable.
+# =============================================================================
+
+name: "SparseDemo_FullCheckout_$(Build.BuildId)"
+
+trigger: none
+pr: none
+
+variables:
+  - name: agentPoolName
+    value: "Default"         # ← Change to your self-hosted pool name
+  - name: gitUserEmail
+    value: "pipeline@example-fake.com"
+  - name: evidenceLabel
+    value: "FULL-CHECKOUT"
+
+pool:
+  name: $(agentPoolName)
+
+jobs:
+  - job: FullCheckout
+    displayName: "Full Checkout – Baseline"
+    workspace:
+      clean: all
+    steps:
+
+      # -----------------------------------------------------------------------
+      # 1. Checkout – full, no sparse settings
+      # -----------------------------------------------------------------------
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        displayName: "Checkout (full)"
+
+      # -----------------------------------------------------------------------
+      # 2. Environment banner
+      # -----------------------------------------------------------------------
+      - script: |
+          echo "##[section]====== AGENT & ENVIRONMENT INFO ======"
+          echo "Pipeline:          $(Build.DefinitionName)"
+          echo "Evidence Label:    $(evidenceLabel)"
+          echo "Build ID:          $(Build.BuildId)"
+          echo "Agent Name:        $(Agent.Name)"
+          echo "Agent OS:          $(Agent.OS)"
+          echo "Agent Version:     $(Agent.Version)"
+          echo "Sources Dir:       $(Build.SourcesDirectory)"
+          echo "Working Dir:       $(System.DefaultWorkingDirectory)"
+          echo "Repo Provider:     $(Build.Repository.Provider)"
+          echo "Repo Name:         $(Build.Repository.Name)"
+          git --version
+          echo "Git Exe:           $(where git 2>nul || which git 2>/dev/null)"
+        displayName: "Print agent and environment info"
+        continueOnError: true
+
+      # -----------------------------------------------------------------------
+      # 3. Workspace inspection – cross-platform
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $env:SPARSE_MODE = "$(evidenceLabel)"
+          $env:SOURCES_DIR = "$(Build.SourcesDirectory)"
+          & "$(Build.SourcesDirectory)/tools/inspect-workspace.ps1"
+        displayName: "Inspect workspace (PowerShell)"
+        condition: eq(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true
+
+      - bash: |
+          export SPARSE_MODE="$(evidenceLabel)"
+          export SOURCES_DIR="$(Build.SourcesDirectory)"
+          bash "$(Build.SourcesDirectory)/tools/inspect-workspace.sh"
+        displayName: "Inspect workspace (Bash)"
+        condition: ne(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true

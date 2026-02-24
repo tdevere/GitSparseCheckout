@@ -1,0 +1,57 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug inspect-workspace.ps1 (Full Checkout)",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${workspaceFolder}/tools/inspect-workspace.ps1",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": {
+        "SPARSE_MODE": "FULL-CHECKOUT",
+        "SOURCES_DIR": "${workspaceFolder}"
+      },
+      "createTemporaryIntegratedConsole": false
+    },
+    {
+      "name": "Debug inspect-workspace.ps1 (Sparse Directories)",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${workspaceFolder}/tools/inspect-workspace.ps1",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": {
+        "SPARSE_MODE": "SPARSE-DIRECTORIES",
+        "SOURCES_DIR": "${workspaceFolder}"
+      },
+      "createTemporaryIntegratedConsole": false
+    },
+    {
+      "name": "Debug inspect-workspace.ps1 (Sparse Patterns)",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${workspaceFolder}/tools/inspect-workspace.ps1",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": {
+        "SPARSE_MODE": "SPARSE-PATTERNS",
+        "SOURCES_DIR": "${workspaceFolder}"
+      },
+      "createTemporaryIntegratedConsole": false
+    },
+    {
+      "name": "Debug inspect-workspace.ps1 (Both – Patterns Win)",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${workspaceFolder}/tools/inspect-workspace.ps1",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": {
+        "SPARSE_MODE": "SPARSE-BOTH-PATTERNS-WIN",
+        "SOURCES_DIR": "${workspaceFolder}"
+      },
+      "createTemporaryIntegratedConsole": false
+    }
+  ]
+}

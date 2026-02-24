@@ -1,0 +1,11 @@
+# CDN File 1 – Static Asset Manifest
+# SENTINEL: CDN_FILE_1_PRESENT
+
+asset_id: cdn-001
+owner: cdn-team@example.com
+build_time: 2026-01-15T08:00:00Z
+version: 3.2.1
+
+# Fake PII for presence testing (not real data):
+# contact_ref: user-id-7841 / dept: web-platform
+# This string proves CDN/cdnfile1.txt was materialized.

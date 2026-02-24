@@ -1,0 +1,90 @@
+# =============================================================================
+# sparse-patterns.yml – Non-cone pattern sparse checkout via sparseCheckoutPatterns
+# =============================================================================
+# PURPOSE: Demonstrate git non-cone pattern-mode sparse checkout targeting
+#          CDN/** only.
+#
+# KEY BEHAVIOUR (non-cone / pattern mode):
+#   - CDN/ and all its contents ARE materialized (matched by CDN/**).
+#   - FolderA/ and FolderB/ are NOT materialized.
+#   - Root-level files (RootFile1.yml, RootFile2.yml, config.json, …) are
+#     NOT materialized – pattern mode only includes what patterns explicitly match.
+#
+# CONTRAST with sparseCheckoutDirectories (cone mode):
+#   cone mode  → root-level files APPEAR  (git cone-mode behaviour)
+#   pattern mode → root-level files ABSENT (strict pattern matching)
+#
+# EXPECTED evidence in logs:
+#   PRESENT  : CDN/cdnfile1.txt  CDN/nested/cdnfile2.txt
+#   ABSENT   : FolderA/a1.txt   FolderB/b1.txt  RootFile1.yml  RootFile2.yml
+# =============================================================================
+
+name: "SparseDemo_SparsePatterns_$(Build.BuildId)"
+
+trigger: none
+pr: none
+
+variables:
+  - name: agentPoolName
+    value: "Default"         # ← Change to your self-hosted pool name
+  - name: evidenceLabel
+    value: "SPARSE-PATTERNS"
+
+pool:
+  name: $(agentPoolName)
+
+jobs:
+  - job: SparsePatterns
+    displayName: "Sparse Checkout – sparseCheckoutPatterns (non-cone)"
+    workspace:
+      clean: all
+    steps:
+
+      # -----------------------------------------------------------------------
+      # 1. Checkout – non-cone pattern-mode sparse, targeting CDN/** only
+      # -----------------------------------------------------------------------
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        sparseCheckoutPatterns: |
+          CDN/**
+        displayName: "Checkout (sparseCheckoutPatterns: CDN/**)"
+
+      # -----------------------------------------------------------------------
+      # 2. Environment banner
+      # -----------------------------------------------------------------------
+      - script: |
+          echo "##[section]====== AGENT & ENVIRONMENT INFO ======"
+          echo "Pipeline:          $(Build.DefinitionName)"
+          echo "Evidence Label:    $(evidenceLabel)"
+          echo "Build ID:          $(Build.BuildId)"
+          echo "Agent Name:        $(Agent.Name)"
+          echo "Agent OS:          $(Agent.OS)"
+          echo "Agent Version:     $(Agent.Version)"
+          echo "Sources Dir:       $(Build.SourcesDirectory)"
+          echo "Sparse Mode:       sparseCheckoutPatterns=CDN/** (NON-CONE / PATTERN MODE)"
+          git --version
+          echo "##[section]====== GIT SPARSE-CHECKOUT STATUS ======"
+          cd "$(Build.SourcesDirectory)"
+          git sparse-checkout list || echo "(sparse-checkout list not available)"
+        displayName: "Print agent and environment info"
+        continueOnError: true
+
+      # -----------------------------------------------------------------------
+      # 3. Workspace inspection – cross-platform
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $env:SPARSE_MODE = "$(evidenceLabel)"
+          $env:SOURCES_DIR = "$(Build.SourcesDirectory)"
+          & "$(Build.SourcesDirectory)/tools/inspect-workspace.ps1"
+        displayName: "Inspect workspace (PowerShell)"
+        condition: eq(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true
+
+      - bash: |
+          export SPARSE_MODE="$(evidenceLabel)"
+          export SOURCES_DIR="$(Build.SourcesDirectory)"
+          bash "$(Build.SourcesDirectory)/tools/inspect-workspace.sh"
+        displayName: "Inspect workspace (Bash)"
+        condition: ne(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true

@@ -1,0 +1,13 @@
+# CDN File 2 – Image CDN Registry
+# SENTINEL: CDN_FILE_2_PRESENT
+
+registry_id: img-cdn-002
+base_url: https://cdn.example-fake.com/images/
+formats:
+  - webp
+  - avif
+  - png
+
+# Fake PII for presence testing (not real data):
+# contact_ref: user-id-9902 / dept: media-assets
+# This string proves CDN/cdnfile2.txt was materialized.

@@ -1,0 +1,13 @@
+# RootFile2.yml
+# SENTINEL: ROOT_FILE2_PRESENT
+#
+# Second root-level YAML sentinel.
+# Presence or absence of this file in pipeline logs is key evidence
+# distinguishing cone-mode from pattern-mode sparse checkout.
+
+document: root-config-2
+version: "1.0"
+environment: staging
+owner: platform-team@example-fake.com
+
+# contact_ref: user-id-0002 / type: root-sentinel

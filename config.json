@@ -1,0 +1,9 @@
+{
+  "project": "sparse-checkout-demo",
+  "version": "1.0.0",
+  "sentinel": "ROOT_CONFIG_JSON_PRESENT",
+  "owner": "platform-team@example-fake.com",
+  "contact_ref": "user-id-0003",
+  "type": "root-sentinel",
+  "note": "Presence of this file is evidence that root-level files were materialized."
+}

@@ -1,0 +1,9 @@
+Root Sentinel Text File 1
+SENTINEL: ROOT_TXT1_PRESENT
+
+This plain-text root-level file assists sparse checkout comparison.
+owner: platform-team@example-fake.com
+contact_ref: user-id-0004
+type: root-sentinel
+
+Presence of this file in workspace inspections proves root files were materialized.

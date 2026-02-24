@@ -1,0 +1,9 @@
+{
+  "asset_id": "deep-asset-001",
+  "tier": "deeply-nested",
+  "path_hint": "CDN/nested/deep/asset.json",
+  "sentinel": "CDN_DEEP_ASSET_PRESENT",
+  "contact_ref": "user-id-5521",
+  "dept": "infra-cdn",
+  "note": "This content proves CDN/nested/deep/asset.json was materialized."
+}

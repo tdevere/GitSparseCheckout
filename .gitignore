@@ -1,0 +1,50 @@
+# ============================================================
+# .gitignore for azure-devops-sparse-checkout-demo
+# ============================================================
+
+# ----- OS generated files -----------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ----- Windows thumbnail cache ------------------------------
+desktop.ini
+
+# ----- VS Code workspace state (keep settings tracked) -----
+.vscode/*.log
+
+# ----- PowerShell -------------------------------------------
+*.ps1xml
+
+# ----- Temporary / test output files -----------------------
+*.tmp
+*.temp
+inspection-output-*.txt
+
+# ----- Agent work directories (if repo is cloned to an agent path) --
+_work/
+agent/
+
+# ----- Node / npm (not used here, exclude if accidentally created) --
+node_modules/
+package-lock.json
+yarn.lock
+
+# ----- Python (not used, exclude if accidentally created) ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ----- Logs -----------------------------------------------------------------
+logs/
+*.log
+
+# ----- Azure DevOps agent artifacts (if agent is run locally) ---------------
+_diag/
+_layout/

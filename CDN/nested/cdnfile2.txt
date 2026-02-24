@@ -1,0 +1,10 @@
+# CDN Nested File 2 – Deep Asset Registry
+# SENTINEL: CDN_NESTED_CDNFILE2_PRESENT
+
+nested_asset_id: nested-cdn-001
+tier: deep-nested
+path_hint: CDN/nested/cdnfile2.txt
+
+# Fake PII for presence testing (not real data):
+# contact_ref: user-id-3310 / dept: infra-cdn
+# This string proves CDN/nested/cdnfile2.txt was materialized.

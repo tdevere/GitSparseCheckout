@@ -1,0 +1,14 @@
+# RootFile1.yml
+# SENTINEL: ROOT_FILE1_PRESENT
+#
+# This root-level YAML is a sentinel for cone-mode behaviour testing.
+# In sparseCheckoutDirectories (cone mode) git ALWAYS materializes root-level files
+# even when only a sub-directory is requested.  That is expected behaviour.
+# In sparseCheckoutPatterns with "CDN/**" root-level files should NOT appear.
+
+document: root-config-1
+version: "1.0"
+environment: production
+owner: platform-team@example-fake.com
+
+# contact_ref: user-id-0001 / type: root-sentinel

@@ -1,0 +1,10 @@
+# FolderB File 2
+# SENTINEL: FOLDER_B_FILE2_PRESENT
+
+folder: FolderB
+file_id: b2
+build_artifact: false
+
+# Fake metadata: owner=team-b@example-fake.com reference=proj-b-2024
+# This file proves FolderB was checked out.
+# Should NOT appear in CDN-only sparse checkout modes.

@@ -1,0 +1,110 @@
+# =============================================================================
+# sparse-both.yml – Both sparseCheckoutDirectories AND sparseCheckoutPatterns
+# =============================================================================
+# PURPOSE: Prove that when BOTH properties are set, Azure DevOps uses
+#          sparseCheckoutPatterns (non-cone mode) and IGNORES
+#          sparseCheckoutDirectories.
+#
+# DOCUMENTATION REFERENCE:
+#   From Azure DevOps documentation:
+#   "If both sparseCheckoutDirectories and sparseCheckoutPatterns are specified,
+#    sparseCheckoutPatterns is used and sparseCheckoutDirectories is ignored."
+#
+# EXPECTED BEHAVIOUR – same as sparse-patterns.yml:
+#   PRESENT  : CDN/cdnfile1.txt  CDN/nested/cdnfile2.txt
+#   ABSENT   : FolderA/a1.txt   FolderB/b1.txt  RootFile1.yml  RootFile2.yml
+#
+# CONTRAST with sparse-directories.yml (cone mode):
+#   cone mode (dirs only)       → RootFile1.yml PRESENT  (cone mode materializes root)
+#   both set (patterns win)     → RootFile1.yml ABSENT   (pattern mode, no root)
+#
+# If RootFile1.yml is ABSENT in this pipeline's logs, patterns won. ✓
+# =============================================================================
+
+name: "SparseDemo_SparseBoth_$(Build.BuildId)"
+
+trigger: none
+pr: none
+
+variables:
+  - name: agentPoolName
+    value: "Default"         # ← Change to your self-hosted pool name
+  - name: evidenceLabel
+    value: "SPARSE-BOTH-PATTERNS-WIN"
+
+pool:
+  name: $(agentPoolName)
+
+jobs:
+  - job: SparseBoth
+    displayName: "Sparse Checkout – Both set (patterns win)"
+    workspace:
+      clean: all
+    steps:
+
+      # -----------------------------------------------------------------------
+      # 1. Checkout – BOTH properties set
+      #    sparseCheckoutDirectories is intentionally set to a different value
+      #    (FolderA) so that if it were used, FolderA would appear.
+      #    sparseCheckoutPatterns targets CDN/** so only CDN should appear.
+      #    The ABSENCE of FolderA proves patterns won.
+      # -----------------------------------------------------------------------
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        # DIRECTORIES (cone mode) – this value is intentionally set to FolderA
+        # so that if it were honoured, FolderA/a1.txt would be present.
+        # It should be IGNORED because sparseCheckoutPatterns is also set.
+        sparseCheckoutDirectories: FolderA
+        # PATTERNS (non-cone mode) – this is what should actually be used.
+        # Only CDN/** is matched; FolderA and root files should be absent.
+        sparseCheckoutPatterns: |
+          CDN/**
+        displayName: "Checkout (BOTH: directories=FolderA, patterns=CDN/** → patterns win)"
+
+      # -----------------------------------------------------------------------
+      # 2. Environment banner
+      # -----------------------------------------------------------------------
+      - script: |
+          echo "##[section]====== AGENT & ENVIRONMENT INFO ======"
+          echo "Pipeline:              $(Build.DefinitionName)"
+          echo "Evidence Label:        $(evidenceLabel)"
+          echo "Build ID:              $(Build.BuildId)"
+          echo "Agent Name:            $(Agent.Name)"
+          echo "Agent OS:              $(Agent.OS)"
+          echo "Agent Version:         $(Agent.Version)"
+          echo "Sources Dir:           $(Build.SourcesDirectory)"
+          echo "Sparse Mode:           BOTH SET – sparseCheckoutPatterns WINS"
+          echo "sparseCheckoutDirs:    FolderA  (should be IGNORED)"
+          echo "sparseCheckoutPatterns: CDN/**  (should be USED)"
+          echo ""
+          echo "##[section]====== PROOF LOGIC ======"
+          echo "  If FolderA/a1.txt is ABSENT  → patterns won (correct)"
+          echo "  If FolderA/a1.txt is PRESENT → directories were used (unexpected)"
+          echo "  If RootFile1.yml   is ABSENT  → patterns won (confirms non-cone mode)"
+          echo "  If RootFile1.yml   is PRESENT → cone mode was used (unexpected)"
+          git --version
+          echo "##[section]====== GIT SPARSE-CHECKOUT STATUS ======"
+          cd "$(Build.SourcesDirectory)"
+          git sparse-checkout list || echo "(sparse-checkout list not available)"
+        displayName: "Print agent and environment info"
+        continueOnError: true
+
+      # -----------------------------------------------------------------------
+      # 3. Workspace inspection – cross-platform
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $env:SPARSE_MODE = "$(evidenceLabel)"
+          $env:SOURCES_DIR = "$(Build.SourcesDirectory)"
+          & "$(Build.SourcesDirectory)/tools/inspect-workspace.ps1"
+        displayName: "Inspect workspace (PowerShell)"
+        condition: eq(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true
+
+      - bash: |
+          export SPARSE_MODE="$(evidenceLabel)"
+          export SOURCES_DIR="$(Build.SourcesDirectory)"
+          bash "$(Build.SourcesDirectory)/tools/inspect-workspace.sh"
+        displayName: "Inspect workspace (Bash)"
+        condition: ne(variables['Agent.OS'], 'Windows_NT')
+        continueOnError: true
