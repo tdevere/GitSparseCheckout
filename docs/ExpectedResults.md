@@ -143,72 +143,107 @@ PROOF_POSITIVE     : RootFile1.yml ABSENT + CDN/cdnfile1.txt PRESENT.
 
 ---
 
-## 4. sparse-both.yml — Both set (patterns win)
+## 4. sparse-both.yml — Both set (⚠️ directories won — Build 712)
 
 **Pipeline name**: `SparseDemo_SparseBoth`  
-**Evidence label**: `SPARSE-BOTH-PATTERNS-WIN`
+**Evidence label**: `SPARSE-BOTH-PATTERNS-WIN`  
+**Authoritative build**: Build 712 (MCAPDevOpsOrg, agent v4.266.2, git 2.43.0)
+
+> ⚠️ **DOCUMENTATION DISCREPANCY**  
+> The Azure DevOps documentation states patterns win when both properties are
+> set. **Build 712 proved the opposite on this agent version: directories won.**
+> Results below reflect the **actual observed behaviour**.
 
 ### Configuration in the pipeline
 
 ```yaml
-sparseCheckoutDirectories: FolderA    # intentionally set – should be IGNORED
-sparseCheckoutPatterns: |
-  CDN/**                               # should WIN
+sparseCheckoutDirectories: FolderA tools   # WON on Build 712 (cone mode used)
+sparseCheckoutPatterns: |                  # IGNORED on Build 712
+  CDN/**
+  tools/**
 ```
 
-> The directories value is **intentionally set to `FolderA`** (not CDN) so
-> that if it were honoured, `FolderA/a1.txt` would appear in the workspace.
-> Its absence proves that `sparseCheckoutPatterns` won.
-
-### Expected directory listing
+### Actual observed directory listing (Build 712)
 
 ```
-DIR_PRESENT        : CDN/
+DIR_PRESENT        : FolderA/
 ```
 
-> `FolderA/` must **not** be present.  If it is, the agent is not following
-> the documented precedence rule.
+> `CDN/` was **absent** — patterns were silently ignored.  
+> `FolderA/` was **present** — directories were honoured.
 
-### Expected root-level files — NONE (same as pattern mode)
-
-### Sentinel table
-
-| Path                        | EXISTS | EXPECTED | OUTCOME |
-|-----------------------------|--------|----------|---------|
-| CDN/cdnfile1.txt            | YES    | YES      | PASS    |
-| CDN/nested/cdnfile2.txt     | YES    | YES      | PASS    |
-| FolderA/a1.txt              | NO     | NO       | PASS    |
-| FolderB/b1.txt              | NO     | NO       | PASS    |
-| RootFile1.yml               | NO     | NO       | PASS    |
-| RootFile2.yml               | NO     | NO       | PASS    |
-
-### Key log lines to look for
+### Actual observed root-level files (CONE MODE — directories won)
 
 ```
-GIT_CONE_MODE      : false
-PROOF_POSITIVE     : FolderA/a1.txt ABSENT + CDN/cdnfile1.txt PRESENT + RootFile1.yml ABSENT.
+ROOT_FILE_PRESENT  : RootFile1.yml
+ROOT_FILE_PRESENT  : RootFile2.yml
+ROOT_FILE_PRESENT  : config.json
+ROOT_FILE_PRESENT  : root-notes.txt
+```
+
+> Root files are present because **cone mode** was used (git ran
+> `sparse-checkout init --cone`). This is the key signal that directories won.
+
+### Sentinel table — observed in Build 712
+
+| Path                        | EXISTS | EXPECTED (per docs) | OUTCOME           |
+|-----------------------------|--------|---------------------|-------------------|
+| CDN/cdnfile1.txt            | NO     | YES                 | FAIL-MISSING ⚠️  |
+| CDN/nested/cdnfile2.txt     | NO     | YES                 | FAIL-MISSING ⚠️  |
+| FolderA/a1.txt              | YES    | NO                  | FAIL-UNEXPECTED ⚠️|
+| FolderB/b1.txt              | NO     | NO                  | PASS              |
+| RootFile1.yml               | YES    | NO                  | FAIL-UNEXPECTED ⚠️|
+| RootFile2.yml               | YES    | NO                  | FAIL-UNEXPECTED ⚠️|
+
+### Key log lines from Build 712
+
+```
+GIT_CONE_MODE      : true
+SUMMARY_PASS       : 2
+SUMMARY_FAIL       : 12
+```
+
+Raw git commands logged by the agent (from Build 712 logs):
+
+```
+##[command]git sparse-checkout init --cone
+##[command]git sparse-checkout set FolderA tools
+```
+
+`CDN/**` was **never passed to git**. The agent chose `sparseCheckoutDirectories`
+and discarded `sparseCheckoutPatterns` without any warning or error.
+
+### Proof line
+
+```
+PROOF_POSITIVE     : FolderA/a1.txt PRESENT + RootFile1.yml PRESENT + CDN/ ABSENT
+                     → sparseCheckoutDirectories won on agent v4.266.2 / git 2.43.0
 ```
 
 ---
 
 ## Summary comparison table
 
-| Observation                    | Full | Dirs (cone) | Patterns | Both |
-|--------------------------------|------|-------------|----------|------|
-| CDN/ directory present         | ✅    | ✅           | ✅        | ✅    |
-| FolderA/ directory present     | ✅    | ❌           | ❌        | ❌    |
-| FolderB/ directory present     | ✅    | ❌           | ❌        | ❌    |
-| RootFile1.yml present          | ✅    | ✅ (cone!)   | ❌        | ❌    |
-| RootFile2.yml present          | ✅    | ✅ (cone!)   | ❌        | ❌    |
-| CDN/cdnfile1.txt present       | ✅    | ✅           | ✅        | ✅    |
-| CDN/nested/cdnfile2.txt present| ✅    | ✅           | ✅        | ✅    |
-| FolderA/a1.txt present         | ✅    | ❌           | ❌        | ❌    |
-| core.sparseCheckoutCone        | —    | true        | false    | false|
-| SUMMARY_FAIL count             | 0    | 0           | 0        | 0    |
+| Observation                    | Full | Dirs (cone) | Patterns | Both ⚠️ (dirs won — Build 712) |
+|--------------------------------|------|-------------|----------|----------------------------------|
+| CDN/ directory present         | ✅    | ✅           | ✅        | ❌ patterns ignored               |
+| FolderA/ directory present     | ✅    | ❌           | ❌        | ⚠️ YES — dirs won                |
+| FolderB/ directory present     | ✅    | ❌           | ❌        | ❌                                |
+| RootFile1.yml present          | ✅    | ✅ (cone!)   | ❌        | ⚠️ YES — cone mode used          |
+| RootFile2.yml present          | ✅    | ✅ (cone!)   | ❌        | ⚠️ YES — cone mode used          |
+| CDN/cdnfile1.txt present       | ✅    | ✅           | ✅        | ❌ CDN absent                     |
+| CDN/nested/cdnfile2.txt present| ✅    | ✅           | ✅        | ❌ CDN absent                     |
+| FolderA/a1.txt present         | ✅    | ❌           | ❌        | ⚠️ YES — proves dirs won         |
+| core.sparseCheckoutCone        | —    | true        | false    | true (cone mode)                  |
+| SUMMARY_FAIL count             | 0    | 0           | 0        | 12 (sentinel expected CDN)        |
 
-> ⚠️ **The most important distinction** is the `RootFile1.yml` row:
-> - Cone mode (`sparse-directories`) → **PRESENT** (cone always includes root)
-> - Pattern mode (`sparse-patterns`, `sparse-both`) → **ABSENT**
+> ⚠️ **Key discrepancy (Build 712):** Documentation says patterns win when both
+> properties are set. On agent v4.266.2 / git 2.43.0, **directories won**.
+> The `Both` column above reflects **observed behaviour**, not documentation claims.
+>
+> - Cone mode (`sparse-directories`) → `RootFile1.yml` **PRESENT**
+> - Pattern mode (`sparse-patterns`) → `RootFile1.yml` **ABSENT**
+> - Both set (`sparse-both`, Build 712) → `RootFile1.yml` **PRESENT** ← directories won
 
 ---
 

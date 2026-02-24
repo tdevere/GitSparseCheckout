@@ -13,12 +13,12 @@
 
 **Pipelines (run manually — `trigger: none`):**
 
-| # | Pipeline name | ADO link | Pipeline ID |
-|---|---------------|----------|-------------|
-| 1 | 01-Full-Checkout | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=71) | 71 |
-| 2 | 02-Sparse-Directories | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=72) | 72 |
-| 3 | 03-Sparse-Patterns | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=73) | 73 |
-| 4 | 04-Sparse-Both-Patterns-Win | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=74) | 74 |
+| #   | Pipeline name               | ADO link                                                                         | Pipeline ID |
+| --- | --------------------------- | -------------------------------------------------------------------------------- | ----------- |
+| 1   | 01-Full-Checkout            | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=71) | 71          |
+| 2   | 02-Sparse-Directories       | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=72) | 72          |
+| 3   | 03-Sparse-Patterns          | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=73) | 73          |
+| 4   | 04-Sparse-Both-Patterns-Win | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=74) | 74          |
 
 > **Before running**: ensure a self-hosted agent is registered in the `Default`
 > pool of this org, **or** override the `agentPoolName` variable at queue time
@@ -33,7 +33,7 @@
 | Full checkout              | [`.azuredevops/full-checkout.yml`](.azuredevops/full-checkout.yml)           | Baseline – all files present                                                |
 | Sparse directories (cone)  | [`.azuredevops/sparse-directories.yml`](.azuredevops/sparse-directories.yml) | `sparseCheckoutDirectories: CDN` materialises CDN/ **and** root-level files |
 | Sparse patterns (non-cone) | [`.azuredevops/sparse-patterns.yml`](.azuredevops/sparse-patterns.yml)       | `sparseCheckoutPatterns: CDN/**` materialises only CDN/, root files absent  |
-| Both set (patterns win)    | [`.azuredevops/sparse-both.yml`](.azuredevops/sparse-both.yml)               | When both are set, patterns win and directories are ignored                 |
+| Both set (dirs win ⚠️)      | [`.azuredevops/sparse-both.yml`](.azuredevops/sparse-both.yml)               | When both are set, **directories won** on agent v4.266.2 / git 2.43.0 — contradicting documentation |
 
 ---
 
@@ -79,7 +79,7 @@ them (e.g. `*.yml`).
 Use this mode when you need a single subtree and explicitly do **not** want
 root-level files in your workspace.
 
-#### When both are set — patterns always win
+#### When both are set — ⚠️ DOCUMENTATION DISCREPANCY
 
 According to the Azure DevOps documentation:
 
@@ -87,10 +87,27 @@ According to the Azure DevOps documentation:
 > specified, `sparseCheckoutPatterns` is used and `sparseCheckoutDirectories`
 > is ignored."_
 
-The `sparse-both.yml` pipeline proves this by intentionally setting
-`sparseCheckoutDirectories: FolderA` (which would materialise FolderA if
-honoured) while `sparseCheckoutPatterns: CDN/**` is also set.
-The absence of `FolderA/a1.txt` in the logs confirms patterns won.
+**However, live pipeline evidence (Build 712, agent v4.266.2, git 2.43.0)
+proves the opposite: `sparseCheckoutDirectories` WON.**
+
+The `sparse-both.yml` pipeline was configured with
+`sparseCheckoutDirectories: FolderA` and `sparseCheckoutPatterns: CDN/**`.
+Build 712 showed `FolderA/a1.txt` **PRESENT** and `CDN/cdnfile1.txt`
+**ABSENT**, confirming that the agent used cone mode (directories) and
+silently ignored the patterns property.
+
+Build 712 raw log evidence:
+```
+##[command]git sparse-checkout init --cone
+##[command]git sparse-checkout set FolderA tools
+```
+
+`CDN/**` was never passed to git. `SUMMARY_FAIL: 12` in that run reflects
+sentinel checks that expected CDN files but found FolderA files instead.
+
+> **Recommendation**: do not rely on this precedence behaviour across agent
+> versions. Test explicitly on your target agent version.
+> See: `docs/SparseCheckout-TechnicalSupportDocument.md` — Section 8.
 
 ---
 
@@ -140,14 +157,14 @@ root-notes.txt                 # Root sentinel
 
 ## The key observable difference
 
-| Observable                | Full | Cone (dirs) | Pattern | Both (patterns win)      |
-| ------------------------- | ---- | ----------- | ------- | ------------------------ |
-| `CDN/` present            | ✅   | ✅          | ✅      | ✅                       |
-| `FolderA/` present        | ✅   | ❌          | ❌      | ❌                       |
-| `FolderB/` present        | ✅   | ❌          | ❌      | ❌                       |
-| `RootFile1.yml` present   | ✅   | ✅ ← cone!  | ❌      | ❌                       |
-| `FolderA/a1.txt` present  | ✅   | ❌          | ❌      | ❌ ← proves patterns win |
-| `core.sparseCheckoutCone` | —    | `true`      | `false` | `false`                  |
+| Observable                | Full | Cone (dirs) | Pattern | Both (⚠️ dirs won — Build 712) |
+| ------------------------- | ---- | ----------- | ------- | ------------------------------ |
+| `CDN/` present            | ✅   | ✅          | ✅      | ❌ ← patterns ignored          |
+| `FolderA/` present        | ✅   | ❌          | ❌      | ⚠️ YES ← dirs won              |
+| `FolderB/` present        | ✅   | ❌          | ❌      | ❌                             |
+| `RootFile1.yml` present   | ✅   | ✅ ← cone!  | ❌      | ⚠️ YES ← cone mode used!       |
+| `FolderA/a1.txt` present  | ✅   | ❌          | ❌      | ⚠️ YES ← proves dirs won       |
+| `core.sparseCheckoutCone` | —    | `true`      | `false` | `true` ← cone mode             |
 
 > **Root-level files** are the clearest signal: cone mode materialises them,
 > pattern mode does not.
@@ -160,12 +177,14 @@ The repo and all 4 pipelines are already created in
 [MCAPDevOpsOrg / PermaSamples](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples).
 
 To run the demo:
+
 1. Register a self-hosted agent in the `Default` pool of the org — **or**
    queue each pipeline and override `agentPoolName` with your pool name.
 2. Run the 4 pipelines (use the links in the **Live demo** section above).
 3. Compare the **Inspect workspace** step logs across all 4 runs.
 
 To reproduce in a different org:
+
 1. Push this repository to your Azure DevOps project.
 2. Create four pipelines, one per file in `.azuredevops/`.
 3. Set the `agentPoolName` pipeline variable to your self-hosted pool name.
