@@ -148,5 +148,15 @@ answer with specific evidence from the module content.
 
 ---
 
+## Paired Evaluator
+
+Learning modules produced by ADEL should be evaluated using **VALE** (Validation Agent
+for Learning Evaluation) — a simulated average-student persona calibrated to the L1–L2
+audience. See [StudentAgent-Profile.md](StudentAgent-Profile.md) for the full profile,
+misconceptions table, expected pre/post-test scores, and the system prompt for
+deploying VALE as an AI evaluator.
+
+---
+
 _Profile version 1.0 — February 24, 2026_  
 _Created for use with the Azure DevOps Sparse Checkout Learning Module._

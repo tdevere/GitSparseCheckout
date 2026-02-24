@@ -6,7 +6,8 @@
 **Estimated time:** 90 minutes  
 **Format:** Self-paced reading with evidence review  
 **Live evidence repo:** `https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_git/GitSparseCheckout`  
-**Related docs:** `SparseCheckout-TechnicalSupportDocument.md`, `SME-Validation-QA.md`
+**Related docs:** `SparseCheckout-TechnicalSupportDocument.md`, `SME-Validation-QA.md`  
+**Evaluator profile:** [VALE — Validation Agent for Learning Evaluation](StudentAgent-Profile.md)
 
 ---
 
