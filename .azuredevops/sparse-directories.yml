@@ -42,8 +42,8 @@ jobs:
       - checkout: self
         clean: true
         persistCredentials: true
-        sparseCheckoutDirectories: CDN
-        displayName: "Checkout (sparseCheckoutDirectories: CDN)"
+        sparseCheckoutDirectories: CDN tools
+        displayName: "Checkout (sparseCheckoutDirectories: CDN tools)"
 
       # -----------------------------------------------------------------------
       # 2. Environment banner
@@ -57,7 +57,7 @@ jobs:
           echo "Agent OS:          $(Agent.OS)"
           echo "Agent Version:     $(Agent.Version)"
           echo "Sources Dir:       $(Build.SourcesDirectory)"
-          echo "Sparse Mode:       sparseCheckoutDirectories=CDN (CONE MODE)"
+          echo "Sparse Mode:       sparseCheckoutDirectories=CDN tools (CONE MODE)"
           git --version
           echo "##[section]====== GIT SPARSE-CHECKOUT STATUS ======"
           cd "$(Build.SourcesDirectory)"

@@ -60,7 +60,8 @@ jobs:
         # Only CDN/** is matched; FolderA and root files should be absent.
         sparseCheckoutPatterns: |
           CDN/**
-        displayName: "Checkout (BOTH: directories=FolderA, patterns=CDN/** → patterns win)"
+          tools/**
+        displayName: "Checkout (BOTH: directories=FolderA, patterns=CDN/** tools/** → patterns win)"
 
       # -----------------------------------------------------------------------
       # 2. Environment banner
@@ -76,7 +77,7 @@ jobs:
           echo "Sources Dir:           $(Build.SourcesDirectory)"
           echo "Sparse Mode:           BOTH SET – sparseCheckoutPatterns WINS"
           echo "sparseCheckoutDirs:    FolderA  (should be IGNORED)"
-          echo "sparseCheckoutPatterns: CDN/**  (should be USED)"
+          echo "sparseCheckoutPatterns: CDN/** tools/**  (should be USED)"
           echo ""
           echo "##[section]====== PROOF LOGIC ======"
           echo "  If FolderA/a1.txt is ABSENT  → patterns won (correct)"
