@@ -1,6 +1,6 @@
 # Learning Module: Azure DevOps Sparse Checkout — Pipeline Analysis and Real-World Behavior
 
-**Produced by:** ADEL — Azure DevOps Engineering Learner  
+**Produced by:** [ADEL — Azure DevOps Engineering Learner](LearningAgent-Profile.md)  
 **Audience:** Azure DevOps Support Engineers (L1–L3)  
 **Prerequisites:** Familiarity with YAML pipeline basics; basic git concepts (clone, checkout, commit)  
 **Estimated time:** 90 minutes  
@@ -14,10 +14,10 @@
 
 A customer opened a support case with the following complaint:
 
-> *"We configured `sparseCheckoutDirectories: CDN` in our pipeline and root-level files
+> _"We configured `sparseCheckoutDirectories: CDN` in our pipeline and root-level files
 > from our repository keep appearing in our build workspace. We don't want them there.
 > We also tried setting both `sparseCheckoutDirectories` and `sparseCheckoutPatterns`
-> at the same time and our pipeline behaved in a way that contradicts the documentation."*
+> at the same time and our pipeline behaved in a way that contradicts the documentation."_
 
 This is not a unique case. The same pattern appears in support queues regularly because
 the Azure DevOps sparse checkout feature has two distinct operating modes that behave very
@@ -66,33 +66,33 @@ After completing this module, you will be able to:
 **A1.** When `sparseCheckoutDirectories: CDN` is set in an Azure DevOps pipeline, which of
 the following best describes what will appear in the agent workspace?
 
-- (a) Only the `CDN/` folder and its contents  
+- (a) Only the `CDN/` folder and its contents
 - (b) The `CDN/` folder, its contents, and all root-level files in the repository
-- (c) The `CDN/` folder and all other folders at the same level  
+- (c) The `CDN/` folder and all other folders at the same level
 - (d) All repository files except those inside `CDN/`
 
 **A2.** What does the term "cone mode" refer to in the context of git sparse checkout?
 
-- (a) A security mode that restricts which branches can be checked out  
+- (a) A security mode that restricts which branches can be checked out
 - (b) A performance-optimized mode that uses prefix matching on directory names, always
   including root-level files
-- (c) A mode that compresses the checkout into a single archive file  
+- (c) A mode that compresses the checkout into a single archive file
 - (d) A feature exclusive to Azure DevOps that is not part of standard git
 
 **A3.** A customer says their pipeline is checking out only `src/` using
 `sparseCheckoutPatterns: src/**` but they notice that no other files or folders appear
 in the workspace — not even their `README.md`. Is this behavior expected?
 
-- (a) No — root-level files should always be present regardless of sparse checkout mode  
+- (a) No — root-level files should always be present regardless of sparse checkout mode
 - (b) Yes — `sparseCheckoutPatterns` only materializes paths that match the pattern;
   `README.md` is a root file and does not match `src/**`
-- (c) No — this indicates a configuration error in the pipeline  
+- (c) No — this indicates a configuration error in the pipeline
 - (d) Yes — but only if the agent is running on Linux
 
 **A4.** What git command does Azure DevOps issue when `sparseCheckoutDirectories` is used?
 Select the answer that most closely matches what the agent executes.
 
-- (a) `git clone --sparse --depth=1`  
+- (a) `git clone --sparse --depth=1`
 - (b) `git sparse-checkout init --cone` followed by `git sparse-checkout set <dirs>`
 - (c) `git sparse-checkout init` followed by `git sparse-checkout set --no-cone <dirs>`
 - (d) `git fetch --filter=blob:none`
@@ -110,19 +110,19 @@ Select the answer that most closely matches what the agent executes.
     shared/**
 ```
 
-- (a) Only `billing/` and `shared/` appear in the workspace; root files are absent  
-- (b) Only `billing/` appears; `sparseCheckoutPatterns` only accepts a single entry  
-- (c) All repository files appear because patterns are only applied on Windows agents  
+- (a) Only `billing/` and `shared/` appear in the workspace; root files are absent
+- (b) Only `billing/` appears; `sparseCheckoutPatterns` only accepts a single entry
+- (c) All repository files appear because patterns are only applied on Windows agents
 - (d) `billing/` and `shared/` appear along with all root-level files
 
 **B2.** A pipeline is configured with `clean: true` on the checkout step and
 `workspace: clean: all` on the job. What does each setting do, and are they redundant?
 
-- (a) They are redundant — both do the same thing  
+- (a) They are redundant — both do the same thing
 - (b) `clean: true` clears the workspace before checkout; `workspace: clean: all` is a
   job-level setting that also clears the workspace — they address the same agent directory
   but are not strictly redundant in terms of when they run
-- (c) `clean: true` deletes source files; `workspace: clean: all` deletes build outputs only  
+- (c) `clean: true` deletes source files; `workspace: clean: all` deletes build outputs only
 - (d) `workspace: clean: all` is only valid on self-hosted agents
 
 **B3.** A support engineer sets `continueOnError: true` on an inspection script step.
@@ -130,8 +130,8 @@ The build completes with result `partiallySucceeded`. What should the engineer l
 in the pipeline logs to understand why?
 
 - (a) Look for the `##[error]` lines in any step marked with `continueOnError: true`
-- (b) Re-run the pipeline without `continueOnError: true` to force a hard failure  
-- (c) Check whether the agent pool has the correct permissions  
+- (b) Re-run the pipeline without `continueOnError: true` to force a hard failure
+- (c) Check whether the agent pool has the correct permissions
 - (d) `partiallySucceeded` always indicates a network timeout
 
 ---
@@ -142,18 +142,18 @@ in the pipeline logs to understand why?
 `sparseCheckoutPatterns: CDN/**` on the same checkout step. According to the official
 Azure DevOps documentation, what should happen?
 
-- (a) Both properties are applied and the workspace contains both `FolderA/` and `CDN/`  
-- (b) `sparseCheckoutPatterns` is used and `sparseCheckoutDirectories` is ignored  
-- (c) `sparseCheckoutDirectories` is used and `sparseCheckoutPatterns` is ignored  
+- (a) Both properties are applied and the workspace contains both `FolderA/` and `CDN/`
+- (b) `sparseCheckoutPatterns` is used and `sparseCheckoutDirectories` is ignored
+- (c) `sparseCheckoutDirectories` is used and `sparseCheckoutPatterns` is ignored
 - (d) The pipeline fails with a validation error
 
 **C2.** How would you definitively determine which sparse checkout property "won" when
 both are configured, without modifying the pipeline?
 
-- (a) Read the `agent.log` file on the agent machine  
+- (a) Read the `agent.log` file on the agent machine
 - (b) Look for `##[command]git sparse-checkout` lines in the pipeline log and check whether
   `--cone` was used and which directory names appear in the `set` command
-- (c) Use the Azure DevOps REST API to query the task definition  
+- (c) Use the Azure DevOps REST API to query the task definition
 - (d) Run `git log --sparse` on the repository after the build completes
 
 ---
@@ -165,10 +165,10 @@ the step that runs their build script fails with "file not found." The script li
 `tools/` directory. The pipeline uses `sparseCheckoutDirectories: src`. What is the
 most likely cause?
 
-- (a) The build script has a syntax error  
+- (a) The build script has a syntax error
 - (b) The `tools/` directory is not in the sparse checkout scope and was never copied
   to the agent workspace
-- (c) The agent does not have permission to read `tools/`  
+- (c) The agent does not have permission to read `tools/`
 - (d) `sparseCheckoutDirectories` does not support multiple path entries
 
 **D2.** You are reading a pipeline log and you see the following lines:
@@ -181,15 +181,15 @@ most likely cause?
 A customer claims their pipeline was supposed to use `sparseCheckoutPatterns: src/**`.
 Based on these log lines alone, what can you tell the customer?
 
-- (a) The pipeline is working correctly — `--cone` and pattern mode are the same thing  
+- (a) The pipeline is working correctly — `--cone` and pattern mode are the same thing
 - (b) The pipeline used cone mode (`sparseCheckoutDirectories`), not pattern mode;
   `sparseCheckoutPatterns` was not applied
-- (c) This log output indicates a network error during checkout  
+- (c) This log output indicates a network error during checkout
 - (d) The `--cone` flag is always present and does not indicate which property was used
 
 ---
 
-*End of pre-test. Record your answers and proceed to the lessons.*
+_End of pre-test. Record your answers and proceed to the lessons._
 
 ---
 
@@ -203,9 +203,9 @@ Based on these log lines alone, what can you tell the customer?
 
 ### The customer's words
 
-> *"Our repository has hundreds of folders. Our CDN pipeline only needs the `CDN/` folder.
+> _"Our repository has hundreds of folders. Our CDN pipeline only needs the `CDN/` folder.
 > Can we tell Azure DevOps to only download that folder? Checkout is taking 4 minutes and
-> we're checking out a thousand files we never use."*
+> we're checking out a thousand files we never use."_
 
 This is the single most common sparse checkout support request. The customer's goal is
 simple: less stuff on the agent. The answer is also simple — but only if you understand
@@ -256,9 +256,9 @@ examines exactly how they differ and what each one is right for.
 
 ### The customer's words
 
-> *"I set `sparseCheckoutDirectories: CDN` and my workspace still has `config.json`,
+> _"I set `sparseCheckoutDirectories: CDN` and my workspace still has `config.json`,
 > `README.md`, and `appsettings.yml` in it. Those files are not inside `CDN/`. Why
-> are they there?"*
+> are they there?"_
 
 This is the most frequently misunderstood behavior in sparse checkout. Let us prove
 exactly what happens before explaining why.
@@ -319,7 +319,7 @@ be disabled:
 
 This is documented in the git man page for `git-sparse-checkout`:
 
-> *"The cone mode will always include the files directly in the root directory."*
+> _"The cone mode will always include the files directly in the root directory."_
 
 So when the customer writes `sparseCheckoutDirectories: CDN`, they are asking for cone
 mode, and cone mode delivers `CDN/` plus every file sitting directly in the root.
@@ -327,12 +327,12 @@ This is not a bug — it is the documented behavior of cone mode in git itself.
 
 ### What this means for your customer
 
-| Customer goal | `sparseCheckoutDirectories` outcome | Does it meet the goal? |
-|---|---|---|
-| Only CDN folder in workspace | CDN/ present | ✅ |
-| Root files absent from workspace | Root files always present | ❌ |
-| Other folders absent | FolderA/, FolderB/ absent | ✅ |
-| Fast checkout (fewer files) | Fewer than full; root files included | ⚠️ Partial |
+| Customer goal                    | `sparseCheckoutDirectories` outcome  | Does it meet the goal? |
+| -------------------------------- | ------------------------------------ | ---------------------- |
+| Only CDN folder in workspace     | CDN/ present                         | ✅                     |
+| Root files absent from workspace | Root files always present            | ❌                     |
+| Other folders absent             | FolderA/, FolderB/ absent            | ✅                     |
+| Fast checkout (fewer files)      | Fewer than full; root files included | ⚠️ Partial             |
 
 If the customer's root contains large files, sensitive files, or files that interfere
 with their build process, `sparseCheckoutDirectories` alone will not solve their problem.
@@ -349,8 +349,8 @@ with their build process, `sparseCheckoutDirectories` alone will not solve their
 
 ### The customer's words
 
-> *"Is there any way to get ONLY the CDN folder? Nothing else — no root files, no other
-> folders. Just CDN."*
+> _"Is there any way to get ONLY the CDN folder? Nothing else — no root files, no other
+> folders. Just CDN."_
 
 Yes. This is exactly what `sparseCheckoutPatterns` was designed for.
 
@@ -403,6 +403,7 @@ SUMMARY_FAIL       : 0
 ### How patterns work
 
 `CDN/**` is a glob pattern. The `**` means "any path at any depth." So `CDN/**` matches:
+
 - `CDN/cdnfile1.txt` ✅
 - `CDN/nested/cdnfile2.txt` ✅
 - `CDN/nested/deep/asset.json` ✅
@@ -416,14 +417,14 @@ what you get.
 
 ### Comparison: cone mode vs pattern mode
 
-| | `sparseCheckoutDirectories` (cone) | `sparseCheckoutPatterns` (non-cone) |
-|---|---|---|
-| git init flag | `--cone` | (none) / `--no-cone` |
-| Root files | **Always present** | Only if pattern matches |
-| Listed folder(s) | Present with all nested content | Present (files matching pattern) |
-| Unlisted folders | Absent | Absent |
-| Multiple entries | Space-separated: `CDN tools` | One per line under `|` |
-| Best for | Fast checkout, root files okay | Strict isolation, no root files |
+|                  | `sparseCheckoutDirectories` (cone) | `sparseCheckoutPatterns` (non-cone) |
+| ---------------- | ---------------------------------- | ----------------------------------- | --- |
+| git init flag    | `--cone`                           | (none) / `--no-cone`                |
+| Root files       | **Always present**                 | Only if pattern matches             |
+| Listed folder(s) | Present with all nested content    | Present (files matching pattern)    |
+| Unlisted folders | Absent                             | Absent                              |
+| Multiple entries | Space-separated: `CDN tools`       | One per line under `                | `   |
+| Best for         | Fast checkout, root files okay     | Strict isolation, no root files     |
 
 ### Key takeaway
 
@@ -437,10 +438,10 @@ what you get.
 
 ### The customer's words
 
-> *"I set both `sparseCheckoutDirectories` and `sparseCheckoutPatterns` in the same
+> _"I set both `sparseCheckoutDirectories` and `sparseCheckoutPatterns` in the same
 > checkout step because the documentation said patterns would win. But my workspace
 > looks like it used directories instead. The docs say patterns win but that's not
-> what I'm seeing."*
+> what I'm seeing."_
 
 This is the most operationally significant finding from our test runs. The customer is
 right to be confused — and the documentation is wrong.
@@ -449,8 +450,8 @@ right to be confused — and the documentation is wrong.
 
 The official Azure DevOps documentation states:
 
-> *"If both `sparseCheckoutDirectories` and `sparseCheckoutPatterns` are specified,
-> `sparseCheckoutPatterns` is used and `sparseCheckoutDirectories` is ignored."*
+> _"If both `sparseCheckoutDirectories` and `sparseCheckoutPatterns` are specified,
+> `sparseCheckoutPatterns` is used and `sparseCheckoutDirectories` is ignored."_
 
 ### What the live build proves
 
@@ -511,6 +512,7 @@ FolderA absent, zero root files). Directories won instead, producing 12 failures
 ### Why this matters in a support case
 
 If a customer has:
+
 ```yaml
 sparseCheckoutDirectories: src
 sparseCheckoutPatterns: |
@@ -526,11 +528,13 @@ did not intend to check out.
 ### Scope of this finding
 
 This behavior was confirmed on:
+
 - Azure DevOps Agent **v4.266.2**
 - git **2.43.0**
 - Linux (Ubuntu) agent OS
 
 This should be tested on:
+
 - Microsoft-hosted agents (Ubuntu, Windows)
 - Different agent versions
 - Older git versions
@@ -563,8 +567,8 @@ If a customer reports this, the investigative sequence is:
 
 ### The customer's words
 
-> *"Our pipeline says `partiallySucceeded` but I can't tell what went wrong. Nothing
-> looks failed in the summary view."*
+> _"Our pipeline says `partiallySucceeded` but I can't tell what went wrong. Nothing
+> looks failed in the summary view."_
 
 This is a class of problem that sparse checkout makes more likely. Here is the pattern
 and how to crack it.
@@ -636,13 +640,13 @@ checkout, the key lines to find are:
 ##[command]git sparse-checkout set [--no-cone] <paths>
 ```
 
-| What you see | What it means |
-|---|---|
-| `init --cone` | Cone mode active → root files will be present |
-| `init` (no flag) | Non-cone mode active → root files absent unless pattern matches |
-| `set CDN tools` | These exact folder names are in the workspace |
-| `set --no-cone CDN/**` | Pattern `CDN/**` is in the workspace filter |
-| `set FolderA tools` (expected CDN) | `sparseCheckoutDirectories` won over `sparseCheckoutPatterns` |
+| What you see                       | What it means                                                   |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `init --cone`                      | Cone mode active → root files will be present                   |
+| `init` (no flag)                   | Non-cone mode active → root files absent unless pattern matches |
+| `set CDN tools`                    | These exact folder names are in the workspace                   |
+| `set --no-cone CDN/**`             | Pattern `CDN/**` is in the workspace filter                     |
+| `set FolderA tools` (expected CDN) | `sparseCheckoutDirectories` won over `sparseCheckoutPatterns`   |
 
 ### Key takeaway
 
@@ -668,19 +672,19 @@ checkout, the key lines to find are:
 following files at its root: `billing/`, `shared/`, `README.md`, `config.yml`.
 What will the workspace contain?
 
-- (a) Only `billing/`  
-- (b) `billing/`, `README.md`, and `config.yml`  
-- (c) `billing/` and `shared/`  
+- (a) Only `billing/`
+- (b) `billing/`, `README.md`, and `config.yml`
+- (c) `billing/` and `shared/`
 - (d) All files — sparse checkout requires explicit opt-in
 
 **A2.** What is the fundamental performance reason that cone mode was introduced to git,
 and what is the trade-off that results in root-level files always being present?
 
-- (a) Cone mode reduces network bandwidth; the trade-off is slower checkout speed  
+- (a) Cone mode reduces network bandwidth; the trade-off is slower checkout speed
 - (b) Cone mode uses fast prefix matching on top-level directory names instead of
   evaluating full path patterns; the trade-off is that the algorithm always includes
   root-level files as part of the prefix structure
-- (c) Cone mode encrypts file transfers; the trade-off is CPU overhead at the root  
+- (c) Cone mode encrypts file transfers; the trade-off is CPU overhead at the root
 - (d) Cone mode caches blob objects; the trade-off is that cached blobs are always
   written to the root
 
@@ -689,8 +693,8 @@ They are using `sparseCheckoutPatterns: FolderA/**`. Without running the pipelin
 what do you tell them about `shared/lib.ts`, a file that lives outside of both FolderA
 and FolderB?
 
-- (a) It will be present because it is not in FolderB  
-- (b) It will be present because pattern mode always includes root-level files  
+- (a) It will be present because it is not in FolderB
+- (b) It will be present because pattern mode always includes root-level files
 - (c) It will be absent unless its path matches a configured pattern (it does not match
   `FolderA/**`)
 - (d) It depends on whether the file was modified in the last commit
@@ -699,9 +703,9 @@ and FolderB?
 **no flags**, followed by `##[command]git sparse-checkout set --no-cone src/**`.
 Which YAML property produced this behavior?
 
-- (a) `sparseCheckoutDirectories: src`  
-- (b) `sparseCheckoutPatterns: src/**`  
-- (c) `sparseCheckoutDirectories: src/**`  
+- (a) `sparseCheckoutDirectories: src`
+- (b) `sparseCheckoutPatterns: src/**`
+- (c) `sparseCheckoutDirectories: src/**`
 - (d) `sparseCheckoutPatterns: src` (without the `**`)
 
 ---
@@ -716,27 +720,27 @@ workspace with zero root-level files:
   sparseCheckoutDirectories: api contracts
 ```
 
-*(Write the corrected YAML — no need to pick from options.)*
+_(Write the corrected YAML — no need to pick from options.)_
 
 **B2.** A customer is using `continueOnError: true` on several steps. Their pipeline
 shows `partiallySucceeded`. They claim the build is fine and ship to production.
 What risk does this create, and what would you recommend they do?
 
-- (a) No risk — `partiallySucceeded` is the same as `succeeded` for deployment purposes  
+- (a) No risk — `partiallySucceeded` is the same as `succeeded` for deployment purposes
 - (b) Steps that failed silently may have produced no output, missing artifacts, or
   incomplete analysis; they should audit every step with `continueOnError: true` in the
   failing build and determine whether the output of each step is actually needed
-- (c) The risk is only relevant if the agent is Linux-based  
+- (c) The risk is only relevant if the agent is Linux-based
 - (d) They should set `continueOnError: false` globally, which prevents any partial results
 
 **B3.** A new engineer writes a pipeline with `sparseCheckoutPatterns`. They notice
 that their build tool (which lives in `tools/build.sh`) is missing from the workspace.
 The sparse pattern is `src/**`. What is the single-line fix, and why does it work?
 
-- (a) Change `src/**` to `src/**  tools/**` on the same line — patterns can be merged  
+- (a) Change `src/**` to `src/**  tools/**` on the same line — patterns can be merged
 - (b) Add `tools/**` as a second line under `sparseCheckoutPatterns` — each pattern on
   its own line instructs git to also match `tools/build.sh`
-- (c) Set `sparseCheckoutDirectories: tools` on the same checkout step alongside patterns  
+- (c) Set `sparseCheckoutDirectories: tools` on the same checkout step alongside patterns
 - (d) Move `tools/build.sh` to the `src/` folder
 
 ---
@@ -748,22 +752,22 @@ a pipeline has both `sparseCheckoutDirectories: deployments` and
 `sparseCheckoutPatterns: src/**` set. A colleague says "the docs say patterns win so
 `src/**` will be used." What is the correct response?
 
-- (a) Your colleague is correct — follow the documentation  
+- (a) Your colleague is correct — follow the documentation
 - (b) The documentation states patterns win but live testing on agent v4.266.2 / git 2.43.0
   shows that `sparseCheckoutDirectories` wins; advise the customer to verify by checking
   the `##[command]git sparse-checkout set` line in their build log
-- (c) Neither property applies when both are set — the checkout reverts to full checkout  
+- (c) Neither property applies when both are set — the checkout reverts to full checkout
 - (d) The documentation is correct on Windows agents but not on Linux agents
 
 **C2.** A customer's `sparse-both` pipeline produces `SUMMARY_FAIL: 12` in the inspection
 log. The inspection script was expecting `CDN/` to be present. The actual workspace
 contains `FolderA/`. What is the definitive interpretation of these facts?
 
-- (a) The inspection script has a bug  
+- (a) The inspection script has a bug
 - (b) The pipeline used `sparseCheckoutDirectories` (which pointed at `FolderA`) rather
   than `sparseCheckoutPatterns` (which pointed at `CDN/**`); the 12 failures are evidence
   of how far the actual behavior deviated from the expected pattern-mode outcome
-- (c) `FolderA/` and `CDN/` are the same folder under a different alias  
+- (c) `FolderA/` and `CDN/` are the same folder under a different alias
 - (d) The agent ran out of memory during checkout
 
 ---
@@ -786,19 +790,19 @@ contains `FolderA/`. What is the definitive interpretation of these facts?
 
 What caused this and how do you fix it?
 
-- (a) The script has a typo — `deploy.sh` does not exist in the repository  
+- (a) The script has a typo — `deploy.sh` does not exist in the repository
 - (b) Cone mode checked out only `app/` (plus root files). The `scripts/` directory
   was not listed in `sparseCheckoutDirectories` and was therefore never copied to the
   workspace. Fix: add `scripts` to `sparseCheckoutDirectories`, or if root files are
   also unwanted, change to `sparseCheckoutPatterns: | app/** scripts/**`
-- (c) The agent user does not have execute permission on the script  
+- (c) The agent user does not have execute permission on the script
 - (d) `bash` is not installed on this agent
 
 **D2.** You are writing a new pipeline with `sparseCheckoutPatterns`. List the two
 specific `##[command]` lines you would expect to see in the build log if the pipeline
 is configured correctly for pattern mode.
 
-*(Write the two expected log lines — no need to pick from options.)*
+_(Write the two expected log lines — no need to pick from options.)_
 
 ---
 
@@ -899,30 +903,32 @@ which means `sparseCheckoutDirectories` was used or won a conflict. (Lesson 5)
 
 ### Identify which mode is active
 
-| Log line you see | Mode | Property used |
-|---|---|---|
-| `git sparse-checkout init --cone` | Cone | `sparseCheckoutDirectories` |
-| `git sparse-checkout init` | Pattern | `sparseCheckoutPatterns` |
-| `git sparse-checkout set CDN tools` | Cone dirs listed | Directories |
-| `git sparse-checkout set --no-cone CDN/**` | Pattern | Patterns |
+| Log line you see                           | Mode             | Property used               |
+| ------------------------------------------ | ---------------- | --------------------------- |
+| `git sparse-checkout init --cone`          | Cone             | `sparseCheckoutDirectories` |
+| `git sparse-checkout init`                 | Pattern          | `sparseCheckoutPatterns`    |
+| `git sparse-checkout set CDN tools`        | Cone dirs listed | Directories                 |
+| `git sparse-checkout set --no-cone CDN/**` | Pattern          | Patterns                    |
 
 ### Predict workspace contents
 
-| Property | Root files | Listed folders | Other folders |
-|---|---|---|---|
-| `sparseCheckoutDirectories: X` | **YES — always** | YES | NO |
-| `sparseCheckoutPatterns: X/**` | NO | YES | NO |
-| Both set (v4.266.2) | **YES (cone)** | Dirs value folder | NO |
+| Property                       | Root files       | Listed folders    | Other folders |
+| ------------------------------ | ---------------- | ----------------- | ------------- |
+| `sparseCheckoutDirectories: X` | **YES — always** | YES               | NO            |
+| `sparseCheckoutPatterns: X/**` | NO               | YES               | NO            |
+| Both set (v4.266.2)            | **YES (cone)**   | Dirs value folder | NO            |
 
 ### Customer wants these outcomes → use this YAML
 
 **"Only CDN, root files OK":**
+
 ```yaml
 - checkout: self
   sparseCheckoutDirectories: CDN
 ```
 
 **"Only CDN, no root files":**
+
 ```yaml
 - checkout: self
   sparseCheckoutPatterns: |
@@ -930,6 +936,7 @@ which means `sparseCheckoutDirectories` was used or won a conflict. (Lesson 5)
 ```
 
 **"Only CDN and api, no root files":**
+
 ```yaml
 - checkout: self
   sparseCheckoutPatterns: |
@@ -938,6 +945,7 @@ which means `sparseCheckoutDirectories` was used or won a conflict. (Lesson 5)
 ```
 
 **"Sparse checkout but my build scripts in tools/ are missing":**
+
 ```yaml
 # Add tools to whichever property you are using
 sparseCheckoutDirectories: CDN tools
@@ -961,19 +969,19 @@ sparseCheckoutPatterns: |
 
 ## Further Reading
 
-| Resource | Notes |
-|---|---|
+| Resource                                                                                                                   | Notes                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | [Azure Pipelines checkout YAML schema](https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout) | Official docs — read critically, the "patterns win" claim for the both-set case is not reliable on all agent versions |
-| [git-sparse-checkout man page](https://git-scm.com/docs/git-sparse-checkout) | Authoritative source for cone mode vs non-cone mode behavior |
-| `docs/SparseCheckout-TechnicalSupportDocument.md` (this repo) | Full technical analysis with all four build results, YAML listings, and raw log evidence |
-| `docs/SME-Validation-QA.md` (this repo) | Point-by-point answers to the four SME validation questions with build evidence |
-| Build 705 (full checkout baseline) | Pipeline 71, `full-checkout.yml` — all files present, clean baseline |
-| Build 709 (cone mode) | Pipeline 72, `sparse-directories.yml` — CDN + root files, no FolderA |
-| Build 710 (pattern mode) | Pipeline 73, `sparse-patterns.yml` — CDN only, ROOT_FILE_COUNT: 0 |
-| Build 712 (both set) | Pipeline 74, `sparse-both.yml` — directories won, patterns ignored |
+| [git-sparse-checkout man page](https://git-scm.com/docs/git-sparse-checkout)                                               | Authoritative source for cone mode vs non-cone mode behavior                                                          |
+| `docs/SparseCheckout-TechnicalSupportDocument.md` (this repo)                                                              | Full technical analysis with all four build results, YAML listings, and raw log evidence                              |
+| `docs/SME-Validation-QA.md` (this repo)                                                                                    | Point-by-point answers to the four SME validation questions with build evidence                                       |
+| Build 705 (full checkout baseline)                                                                                         | Pipeline 71, `full-checkout.yml` — all files present, clean baseline                                                  |
+| Build 709 (cone mode)                                                                                                      | Pipeline 72, `sparse-directories.yml` — CDN + root files, no FolderA                                                  |
+| Build 710 (pattern mode)                                                                                                   | Pipeline 73, `sparse-patterns.yml` — CDN only, ROOT_FILE_COUNT: 0                                                     |
+| Build 712 (both set)                                                                                                       | Pipeline 74, `sparse-both.yml` — directories won, patterns ignored                                                    |
 
 ---
 
-*Learning module produced by ADEL — Azure DevOps Engineering Learner*  
-*February 24, 2026 — Evidence base: live builds 705, 709, 710, 712*  
-*Agent: v4.266.2 · git: 2.43.0 · OS: Linux*
+_Learning module produced by [ADEL — Azure DevOps Engineering Learner](LearningAgent-Profile.md)_  
+_February 24, 2026 — Evidence base: live builds 705, 709, 710, 712_  
+_Agent: v4.266.2 · git: 2.43.0 · OS: Linux_
