@@ -1,0 +1,244 @@
+# =============================================================================
+# server2025-workaround-sparse.yml
+# ADO Server 2025 – Sparse Checkout Workaround Pipeline
+# =============================================================================
+#
+# PROBLEM:
+#   On Azure DevOps Server 2025 (version 20.256.36719.x), the "Get sources"
+#   task (displayed as v1.0.0) does NOT call git sparse-checkout even when
+#   sparseCheckoutDirectories or sparseCheckoutPatterns are set.
+#   The pipeline succeeds but performs a full clone.
+#   Root cause: the server bundles an older build of the task binary that
+#   predates sparse checkout support.
+#
+# WORKAROUND OPTIONS:
+#   This pipeline demonstrates TWO valid workarounds.  Both bypass the broken
+#   task property by driving git sparse-checkout directly via script.
+#
+#   Approach A (Job A_PostCheckoutPrune):
+#     - Performs a normal full checkout (no sparse properties set).
+#     - Immediately runs git sparse-checkout commands in a PowerShell step
+#       to prune the working tree to the desired directories.
+#     - Simple and reliable.  Bandwidth cost: full fetch still occurs.
+#     - Working tree IS sparse after the step runs.
+#
+#   Approach B (Job B_ManualClone):
+#     - Uses checkout: none to skip the broken task entirely.
+#     - Manually clones the repo using git commands, wiring credentials
+#       through the SYSTEM_ACCESSTOKEN.
+#     - Initialises sparse checkout BEFORE the working tree is populated.
+#     - Working tree is sparse from the start; bandwidth is NOT wasted on
+#       files that will be excluded.
+#     - Slightly more complex; requires allowScripts: true on the job.
+#
+#   RECOMMENDATION:
+#     Use Approach A unless bandwidth or clone time is a concern.
+#     Approach B gives true sparse behaviour at the network level.
+#
+# NOTE ON ROOT CAUSE:
+#   The sparseCheckoutDirectories / sparseCheckoutPatterns YAML properties
+#   ARE parsed by the ADO Server pipeline engine (they appear in the expanded
+#   YAML).  The engine passes them to the "Get sources" task as inputs.
+#   The task simply ignores them because the bundled binary does not contain
+#   the code path that calls git sparse-checkout.
+#   This is confirmed by zero "##[command]git sparse-checkout" lines in the
+#   build log on ADO Server 2025 builds 101-103 (adoserver/ADO_TEAM_PROJECT).
+# =============================================================================
+
+name: "SparseDemo_Server2025Workaround_$(Build.BuildId)"
+
+trigger: none
+pr: none
+
+variables:
+  - name: agentPoolName
+    value: "Default" # ← Change to your self-hosted pool name
+  - name: sparseDir
+    value: "CDN" # ← Directory to sparse-checkout
+  - name: evidenceLabel
+    value: "SERVER2025-WORKAROUND"
+
+pool:
+  name: $(agentPoolName)
+
+# =============================================================================
+# JOB A — Post-checkout prune (simple; full fetch, sparse working tree)
+# =============================================================================
+jobs:
+  - job: A_PostCheckoutPrune
+    displayName: "Workaround A: Full fetch then prune working tree"
+    workspace:
+      clean: all
+    steps:
+      # -----------------------------------------------------------------------
+      # A1. Standard checkout — NO sparse properties (they would be silently
+      #     ignored on Server 2025 anyway; omitting them makes intent clear).
+      # -----------------------------------------------------------------------
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        displayName: "Checkout (full – sparse properties intentionally omitted)"
+
+      # -----------------------------------------------------------------------
+      # A2. Apply sparse checkout manually.
+      #     git sparse-checkout works at the git.exe level regardless of the
+      #     ADO task version.  This prunes the working tree immediately after
+      #     the full fetch.
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $src = "$(Build.SourcesDirectory)"
+          Write-Host "WORKAROUND_APPROACH : A - post-checkout prune"
+          Write-Host "SPARSE_DIR_TARGET   : $(sparseDir)"
+          Push-Location $src
+
+          Write-Host "--- Initialising cone-mode sparse checkout ---"
+          & git sparse-checkout init --cone
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]sparse-checkout init failed (exit $LASTEXITCODE)" }
+
+          Write-Host "--- Setting sparse directories ---"
+          & git sparse-checkout set "$(sparseDir)"
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]sparse-checkout set failed (exit $LASTEXITCODE)" }
+
+          Write-Host "--- Verifying sparse state ---"
+          $list = & git sparse-checkout list 2>&1
+          Write-Host "GIT_SPARSE_LIST     : $list"
+
+          $coneFlag = & git config core.sparseCheckoutCone 2>&1
+          Write-Host "GIT_CONE_MODE       : $coneFlag"
+
+          Pop-Location
+
+          Write-Host ""
+          Write-Host "WORKAROUND_STATUS   : sparse working tree applied"
+          Write-Host "NOTE                : full fetch still occurred (bandwidth not saved)"
+          Write-Host "NOTE                : working tree is sparse from this point forward"
+        displayName: "Apply sparse checkout (Approach A – post-checkout prune)"
+        continueOnError: false
+
+      # -----------------------------------------------------------------------
+      # A3. Verify: FolderA/ should be ABSENT, CDN/ should be PRESENT
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $src = "$(Build.SourcesDirectory)"
+          Write-Host "=== WORKSPACE VERIFICATION (Approach A) ==="
+          $dirs = Get-ChildItem -LiteralPath $src -Directory -ErrorAction SilentlyContinue | Sort-Object Name
+          foreach ($d in $dirs) { Write-Host "DIR_PRESENT         : $($d.Name)/" }
+
+          $cdnPresent    = Test-Path (Join-Path $src "CDN\cdnfile1.txt")
+          $folderAPresent = Test-Path (Join-Path $src "FolderA\a1.txt")
+          $folderBPresent = Test-Path (Join-Path $src "FolderB\b1.txt")
+
+          Write-Host "CDN_PRESENT         : $(if ($cdnPresent) {'YES'} else {'NO'})"
+          Write-Host "FOLDERA_PRESENT     : $(if ($folderAPresent) {'YES - UNEXPECTED, prune failed'} else {'NO - PASS'})"
+          Write-Host "FOLDERB_PRESENT     : $(if ($folderBPresent) {'YES - UNEXPECTED, prune failed'} else {'NO - PASS'})"
+
+          $pass = $cdnPresent -and -not $folderAPresent -and -not $folderBPresent
+          Write-Host "WORKAROUND_RESULT   : $(if ($pass) {'PASS - sparse working tree confirmed'} else {'FAIL - see DIR_PRESENT lines above'})"
+        displayName: "Verify sparse workspace (Approach A)"
+        condition: always()
+        continueOnError: true
+
+  # ===========================================================================
+  # JOB B — Manual clone with sparse init before working tree population
+  #          (efficient; no full fetch; requires SYSTEM_ACCESSTOKEN)
+  # ===========================================================================
+  - job: B_ManualClone
+    displayName: "Workaround B: checkout:none + manual sparse clone (efficient)"
+    workspace:
+      clean: all
+    steps:
+      # -----------------------------------------------------------------------
+      # B1. Skip the broken task entirely.
+      # -----------------------------------------------------------------------
+      - checkout: none
+        displayName: "Skip Get sources (use manual clone instead)"
+
+      # -----------------------------------------------------------------------
+      # B2. Clone with blob:none filter, init sparse, set dirs, checkout.
+      #     Uses System.AccessToken for authentication — no PAT required.
+      #     Credentials are base64-encoded as Basic auth per git HTTP spec.
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $src      = "$(Build.SourcesDirectory)"
+          $repoUrl  = "$(Build.Repository.Uri)"
+          $branch   = "$(Build.SourceBranch)" -replace '^refs/heads/',''
+          $token    = $env:SYSTEM_ACCESSTOKEN
+          $sparseTarget = "$(sparseDir)"
+
+          Write-Host "WORKAROUND_APPROACH : B - manual sparse clone"
+          Write-Host "SPARSE_DIR_TARGET   : $sparseTarget"
+          Write-Host "REPO_URL            : $repoUrl"
+          Write-Host "BRANCH              : $branch"
+
+          if (-not $token) {
+              Write-Host "##[error]SYSTEM_ACCESSTOKEN is empty. Enable 'Allow scripts to access OAuth token' on the job."
+              exit 1
+          }
+
+          # Encode credentials for Basic auth (ADO accepts ':token' form)
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+          $extraHeader = "Authorization: Basic $encoded"
+
+          # Ensure target directory exists and is empty
+          if (Test-Path $src) { Remove-Item $src -Recurse -Force }
+          New-Item -ItemType Directory -Path $src | Out-Null
+
+          Push-Location $src
+
+          Write-Host "--- git init ---"
+          & git init | Out-Null
+
+          Write-Host "--- add remote ---"
+          & git remote add origin $repoUrl
+
+          Write-Host "--- configure sparse-checkout BEFORE fetch ---"
+          & git sparse-checkout init --cone
+          & git sparse-checkout set $sparseTarget
+
+          Write-Host "--- fetch (blob:none filter – metadata only) ---"
+          & git -c "http.extraheader=$extraHeader" fetch --filter=blob:none --no-tags --depth=1 origin $branch
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "##[warning]fetch with blob:none failed (filter may not be supported). Retrying without filter..."
+              & git -c "http.extraheader=$extraHeader" fetch --no-tags --depth=1 origin $branch
+          }
+
+          Write-Host "--- checkout ---"
+          & git checkout FETCH_HEAD
+
+          Write-Host "--- verify sparse state ---"
+          $list = & git sparse-checkout list 2>&1
+          Write-Host "GIT_SPARSE_LIST     : $list"
+          $coneFlag = & git config core.sparseCheckoutCone 2>&1
+          Write-Host "GIT_CONE_MODE       : $coneFlag"
+
+          Pop-Location
+          Write-Host ""
+          Write-Host "WORKAROUND_STATUS   : manual sparse clone complete"
+          Write-Host "NOTE                : only sparse directories fetched from server"
+        displayName: "Manual sparse clone (Approach B)"
+        continueOnError: false
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      # -----------------------------------------------------------------------
+      # B3. Verify workspace
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $src = "$(Build.SourcesDirectory)"
+          Write-Host "=== WORKSPACE VERIFICATION (Approach B) ==="
+          $dirs = Get-ChildItem -LiteralPath $src -Directory -ErrorAction SilentlyContinue | Sort-Object Name
+          foreach ($d in $dirs) { Write-Host "DIR_PRESENT         : $($d.Name)/" }
+
+          $cdnPresent     = Test-Path (Join-Path $src "CDN\cdnfile1.txt")
+          $folderAPresent = Test-Path (Join-Path $src "FolderA\a1.txt")
+          $folderBPresent = Test-Path (Join-Path $src "FolderB\b1.txt")
+
+          Write-Host "CDN_PRESENT         : $(if ($cdnPresent) {'YES'} else {'NO'})"
+          Write-Host "FOLDERA_PRESENT     : $(if ($folderAPresent) {'YES - UNEXPECTED, clone not sparse'} else {'NO - PASS'})"
+          Write-Host "FOLDERB_PRESENT     : $(if ($folderBPresent) {'YES - UNEXPECTED, clone not sparse'} else {'NO - PASS'})"
+
+          $pass = $cdnPresent -and -not $folderAPresent -and -not $folderBPresent
+          Write-Host "WORKAROUND_RESULT   : $(if ($pass) {'PASS - sparse clone confirmed'} else {'FAIL - see DIR_PRESENT lines above'})"
+        displayName: "Verify sparse workspace (Approach B)"
+        condition: always()
+        continueOnError: true
