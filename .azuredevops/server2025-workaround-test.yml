@@ -279,10 +279,24 @@ jobs:
         continueOnError: true
 
 # =============================================================================
-# JOB 3 — TEST: Workaround B (manual sparse clone)
+# JOB 3 — TEST: Workaround B (sparse checkout from a wiped working tree)
+#
+# APPROACH:
+#   checkout: self (fetchDepth:1, persistCredentials:true) populates the git
+#   object store and establishes credentials.  We then DELETE every file in
+#   the working tree (but NOT .git/ itself, which preserves the credential
+#   helper set up by the agent).  With an empty working tree we apply
+#   sparse-checkout config and run "git checkout HEAD" which materialises
+#   only the requested directory — proving git honours sparse-checkout at the
+#   git.exe level, independent of the ADO task property.
+#
+# WHY NOT checkout:none + System.AccessToken:
+#   On ADO Server 2025 the "Allow scripts to access OAuth token" project
+#   setting is off by default.  Using checkout:self + persistCredentials:true
+#   avoids that dependency and keeps the test self-contained.
 # =============================================================================
   - job: TEST_WorkaroundB
-    displayName: "TEST B: Manual sparse clone workaround (efficient)"
+    displayName: "TEST B: git sparse-checkout from a wiped working tree"
     workspace:
       clean: all
     variables:
@@ -291,94 +305,76 @@ jobs:
     steps:
 
       # -----------------------------------------------------------------------
-      # B1. Skip the broken task entirely.
+      # B1. Minimal checkout — establishes the git object store and the ADO
+      #     credential helper in .git/config.
+      #     fetchDepth:1 minimises download; fetchTags:false avoids extra refs.
+      #     We intentionally do NOT set sparseCheckoutDirectories here (broken
+      #     on Server 2025); the next step handles sparsity manually.
       # -----------------------------------------------------------------------
-      - checkout: none
-        displayName: "Skip Get sources (checkout:none)"
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        fetchDepth: 1
+        fetchTags: false
+        displayName: "Minimal checkout (establishes git object store + credentials)"
 
       # -----------------------------------------------------------------------
-      # B2. Manual sparse clone using System.AccessToken.
-      #     Sets sparse config BEFORE fetch so only the named directory is
-      #     transferred from the server.
+      # B2. Wipe the working tree (keep .git/), then apply sparse-checkout
+      #     config and re-materialise only the target directory.
+      #
+      #     We NEVER remove $src itself — the agent locks the working
+      #     directory.  Instead we delete its CONTENTS except .git/.
       # -----------------------------------------------------------------------
       - powershell: |
           $src          = "$(Build.SourcesDirectory)"
-          $repoUrl      = "$(Build.Repository.Uri)"
-          $branch       = "$(Build.SourceBranch)" -replace '^refs/heads/',''
-          $token        = $env:SYSTEM_ACCESSTOKEN
           $sparseTarget = "$(sparseDir)"
 
-          Write-Host "WORKAROUND_APPROACH : B - manual sparse clone"
+          Write-Host "WORKAROUND_APPROACH : B - sparse-checkout from wiped working tree"
           Write-Host "SPARSE_DIR_TARGET   : $sparseTarget"
-          Write-Host "REPO_URL            : $repoUrl"
-          Write-Host "BRANCH              : $branch"
 
-          if (-not $token) {
-              Write-Host "##[error]SYSTEM_ACCESSTOKEN is empty."
-              Write-Host "##[error]Enable 'Allow scripts to access OAuth token' on the pipeline."
-              exit 1
-          }
-
-          $encoded     = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
-          $extraHeader = "Authorization: Basic $encoded"
-
-          # Clean and recreate the sources directory
-          if (Test-Path $src) { Remove-Item $src -Recurse -Force }
-          New-Item -ItemType Directory -Path $src | Out-Null
           Push-Location $src
 
-          Write-Host "--- git init ---"
-          & git init
+          # Phase 1 — wipe working tree files (NOT .git/)
+          Write-Host "--- wiping working tree (preserving .git/) ---"
+          Get-ChildItem -LiteralPath $src -Force |
+              Where-Object { $_.Name -ne ".git" } |
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-          Write-Host "--- git remote add origin ---"
-          & git remote add origin $repoUrl
+          $wtAfter = (Get-ChildItem -LiteralPath $src -Force | Where-Object { $_.Name -ne ".git" }).Count
+          Write-Host "WT_FILES_AFTER_WIPE : $wtAfter  (expect 0)"
 
-          Write-Host "--- git sparse-checkout init --cone (BEFORE fetch) ---"
+          # Phase 2 — configure sparse checkout (before materialising)
+          Write-Host "--- git sparse-checkout init --cone ---"
           & git sparse-checkout init --cone
           if ($LASTEXITCODE -ne 0) {
-              Write-Host "##[error]sparse-checkout init failed"
+              Write-Host "##[error]sparse-checkout init failed (exit $LASTEXITCODE)"
               Pop-Location; exit 1
           }
 
           Write-Host "--- git sparse-checkout set $sparseTarget ---"
           & git sparse-checkout set $sparseTarget
           if ($LASTEXITCODE -ne 0) {
-              Write-Host "##[error]sparse-checkout set failed"
+              Write-Host "##[error]sparse-checkout set failed (exit $LASTEXITCODE)"
               Pop-Location; exit 1
           }
 
-          Write-Host "--- git fetch --filter=blob:none --depth=1 ---"
-          & git -c "http.extraheader=$extraHeader" fetch --filter=blob:none --no-tags --depth=1 origin $branch
+          # Phase 3 — materialise only the sparse directories
+          Write-Host "--- git checkout HEAD (materialise sparse tree) ---"
+          & git checkout HEAD
           if ($LASTEXITCODE -ne 0) {
-              Write-Host "##[warning]fetch with blob:none filter failed (code $LASTEXITCODE) - retrying without filter"
-              & git -c "http.extraheader=$extraHeader" fetch --no-tags --depth=1 origin $branch
-              if ($LASTEXITCODE -ne 0) {
-                  Write-Host "##[error]fetch failed on retry (exit $LASTEXITCODE)"
-                  Pop-Location; exit 1
-              }
-              Write-Host "FETCH_FILTER        : blob:none not supported - full fetch used"
-          } else {
-              Write-Host "FETCH_FILTER        : blob:none applied - only sparse content fetched"
-          }
-
-          Write-Host "--- git checkout FETCH_HEAD ---"
-          & git checkout FETCH_HEAD
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "##[error]checkout failed (exit $LASTEXITCODE)"
+              Write-Host "##[error]git checkout HEAD failed (exit $LASTEXITCODE)"
               Pop-Location; exit 1
           }
 
-          $list     = & git sparse-checkout list 2>&1
-          $coneMode = & git config core.sparseCheckoutCone 2>&1
-          Write-Host "GIT_SPARSE_LIST     : $list"
+          $coneMode   = & git config core.sparseCheckoutCone 2>&1
+          $sparseList = & git sparse-checkout list 2>&1
           Write-Host "GIT_CONE_MODE       : $coneMode"
+          Write-Host "GIT_SPARSE_LIST     : $sparseList"
 
           Pop-Location
-          Write-Host "APPLY_STATUS        : manual sparse clone complete"
-        displayName: "Manual sparse clone (Approach B)"
+          Write-Host "APPLY_STATUS        : sparse working tree materialised from wiped base"
+        displayName: "Wipe working tree and apply sparse-checkout (Approach B)"
         continueOnError: false
-        env:
-          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
       # -----------------------------------------------------------------------
       # B3. Validate — identical five-point criteria as Approach A.
