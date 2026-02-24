@@ -251,6 +251,11 @@ examines exactly how they differ and what each one is right for.
 > the server, and by default it does not reduce how many bytes cross the network — it only
 > controls what git writes to disk.
 
+> **Sparse checkout ≠ shallow clone.** Shallow clone (`--depth 1`) reduces how many
+> *commits* are fetched from the server. Sparse checkout controls which *working-tree files*
+> are written to disk. They address different dimensions of repository size and can be used
+> together, but solving one problem does not solve the other.
+
 ---
 
 ## Lesson 2 — `sparseCheckoutDirectories`: Cone Mode and the Root-File Rule
@@ -427,6 +432,13 @@ what you get.
 | Multiple entries | Space-separated: `CDN tools`       | One per line under `                | `   |
 | Best for         | Fast checkout, root files okay     | Strict isolation, no root files     |
 
+> ⚠️ **Mode-switching side effect.** If you advise a customer to switch from
+> `sparseCheckoutDirectories` to `sparseCheckoutPatterns` to suppress root files,
+> warn them first: any root-level file that was previously present — build scripts,
+> `.env` files, `Makefile`, YAML configs — will disappear from the workspace. Audit
+> every downstream pipeline step that reads from the workspace root before making
+> this change, or the switch that fixes one ticket will silently break the next build.
+
 ### Key takeaway
 
 > `sparseCheckoutPatterns` is the only Azure DevOps sparse checkout option that can
@@ -555,6 +567,15 @@ If a customer reports this, the investigative sequence is:
 6. If `--cone` and the directory names match `sparseCheckoutDirectories` values, the
    directories property won.
 
+**First-reply checklist — what to request before you start investigating:**
+
+- Agent version — visible in the pipeline log header or ask the customer to add
+  `echo "Agent version: $(Agent.Version)"` to a script step
+- Git version — ask for output of `git --version` from a script step
+- The complete `checkout:` YAML block from their pipeline file
+- The pipeline log for the checkout step (the step titled "Get sources" or equivalent)
+- The pipeline log for the first step that produced unexpected results
+
 ### Key takeaway
 
 > Do not set both `sparseCheckoutDirectories` and `sparseCheckoutPatterns` in the same
@@ -647,7 +668,7 @@ checkout, the key lines to find are:
 | `init` (no flag)                   | Non-cone mode active → root files absent unless pattern matches |
 | `set CDN tools`                    | These exact folder names are in the workspace                   |
 | `set --no-cone CDN/**`             | Pattern `CDN/**` is in the workspace filter                     |
-| `set FolderA tools` (expected CDN) | `sparseCheckoutDirectories` won over `sparseCheckoutPatterns`   |
+| `set FolderA tools` (expected CDN) | `sparseCheckoutDirectories` won over `sparseCheckoutPatterns` ¹ |
 
 ### Key takeaway
 
@@ -910,6 +931,9 @@ which means `sparseCheckoutDirectories` was used or won a conflict. (Lesson 5)
 | `git sparse-checkout init`                 | Pattern          | `sparseCheckoutPatterns`    |
 | `git sparse-checkout set CDN tools`        | Cone dirs listed | Directories                 |
 | `git sparse-checkout set --no-cone CDN/**` | Pattern          | Patterns                    |
+
+> ¹ Confirmed on agent v4.266.2 / git 2.43.0. Verify against your customer's agent
+> and git version before stating this as universal behavior — see Lesson 4.
 
 ### Predict workspace contents
 
