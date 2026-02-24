@@ -6,6 +6,26 @@
 
 ---
 
+## Live demo — MCAPDevOpsOrg / PermaSamples
+
+**Repository:**
+[`PermaSamples / GitSparseCheckout`](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_git/GitSparseCheckout)
+
+**Pipelines (run manually — `trigger: none`):**
+
+| # | Pipeline name | ADO link | Pipeline ID |
+|---|---------------|----------|-------------|
+| 1 | 01-Full-Checkout | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=71) | 71 |
+| 2 | 02-Sparse-Directories | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=72) | 72 |
+| 3 | 03-Sparse-Patterns | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=73) | 73 |
+| 4 | 04-Sparse-Both-Patterns-Win | [Run ▶](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_build?definitionId=74) | 74 |
+
+> **Before running**: ensure a self-hosted agent is registered in the `Default`
+> pool of this org, **or** override the `agentPoolName` variable at queue time
+> to match your pool. All pipelines have `trigger: none` — queue them manually.
+
+---
+
 ## Pipelines
 
 | Pipeline                   | File                                                                         | What it proves                                                              |
@@ -136,6 +156,16 @@ root-notes.txt                 # Root sentinel
 
 ## Setup
 
+The repo and all 4 pipelines are already created in
+[MCAPDevOpsOrg / PermaSamples](https://dev.azure.com/MCAPDevOpsOrg/PermaSamples).
+
+To run the demo:
+1. Register a self-hosted agent in the `Default` pool of the org — **or**
+   queue each pipeline and override `agentPoolName` with your pool name.
+2. Run the 4 pipelines (use the links in the **Live demo** section above).
+3. Compare the **Inspect workspace** step logs across all 4 runs.
+
+To reproduce in a different org:
 1. Push this repository to your Azure DevOps project.
 2. Create four pipelines, one per file in `.azuredevops/`.
 3. Set the `agentPoolName` pipeline variable to your self-hosted pool name.
