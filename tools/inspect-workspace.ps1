@@ -84,7 +84,7 @@ function Test-Sentinel([string]$relativePath, [string[]]$expectIn, [string]$mode
 # ---------------------------------------------------------------------------
 Write-Section "WORKSPACE INSPECTION REPORT"
 Write-Host "INSPECTION_MODE    : $sparseMode"
-Write-Host "INSPECTION_TIME    : $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ' -AsUTC)"
+Write-Host "INSPECTION_TIME    : $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
 Write-Host "SOURCES_DIR        : $sourcesDir"
 Write-Host "PS_VERSION         : $($PSVersionTable.PSVersion)"
 Write-Host "HOSTNAME           : $env:COMPUTERNAME"
@@ -164,9 +164,9 @@ foreach ($rel in $spotFiles) {
         $sentinel = Select-String -LiteralPath $fp -Pattern 'SENTINEL:' -ErrorAction SilentlyContinue |
                     Select-Object -First 1
         $tag = if ($sentinel) { $sentinel.Line.Trim() } else { '(no SENTINEL line found)' }
-        Write-Host "CONTENT_CHECK      : $rel → $tag"
+        Write-Host "CONTENT_CHECK      : $rel -> $tag"
     } else {
-        Write-Host "CONTENT_CHECK      : $rel → (file not present – skipped)"
+        Write-Host "CONTENT_CHECK      : $rel -> (file not present - skipped)"
     }
 }
 
@@ -233,7 +233,7 @@ switch ($sparseMode) {
         Write-Host "PROOF_POSITIVE     : FolderA/a1.txt ABSENT + CDN/cdnfile1.txt PRESENT + RootFile1.yml ABSENT."
     }
     default {
-        Write-Host "EXPECTED_BEHAVIOUR : Unknown mode – manual inspection required."
+        Write-Host "EXPECTED_BEHAVIOUR : Unknown mode - manual inspection required."
     }
 }
 
