@@ -52,10 +52,10 @@ jobs:
       - checkout: self
         clean: true
         persistCredentials: true
-        # DIRECTORIES (cone mode) – this value is intentionally set to FolderA
-        # so that if it were honoured, FolderA/a1.txt would be present.
-        # It should be IGNORED because sparseCheckoutPatterns is also set.
-        sparseCheckoutDirectories: FolderA
+        # DIRECTORIES (cone mode) – intentionally set to FolderA (+tools so
+        # the inspection script is available whichever mode wins).
+        # The KEY evidence is whether FolderA or CDN ends up in the workspace.
+        sparseCheckoutDirectories: FolderA tools
         # PATTERNS (non-cone mode) – this is what should actually be used.
         # Only CDN/** is matched; FolderA and root files should be absent.
         sparseCheckoutPatterns: |
@@ -76,7 +76,7 @@ jobs:
           echo "Agent Version:         $(Agent.Version)"
           echo "Sources Dir:           $(Build.SourcesDirectory)"
           echo "Sparse Mode:           BOTH SET – sparseCheckoutPatterns WINS"
-          echo "sparseCheckoutDirs:    FolderA  (should be IGNORED)"
+          echo "sparseCheckoutDirs:    FolderA tools  (cone mode probe + tools for inspection)"
           echo "sparseCheckoutPatterns: CDN/** tools/**  (should be USED)"
           echo ""
           echo "##[section]====== PROOF LOGIC ======"
