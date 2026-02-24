@@ -28,7 +28,7 @@ root-notes.txt         Root sentinel
 | `.azuredevops/full-checkout.yml`       | Normal full checkout                 |
 | `.azuredevops/sparse-directories.yml`  | `sparseCheckoutDirectories` (cone)   |
 | `.azuredevops/sparse-patterns.yml`     | `sparseCheckoutPatterns` (non-cone)  |
-| `.azuredevops/sparse-both.yml`         | Both set – patterns win              |
+| `.azuredevops/sparse-both.yml`         | Both set – ⚠️ dirs won (Build 712)   |
 
 ## How to register pipelines in Azure DevOps
 
@@ -83,11 +83,28 @@ Set `sparseCheckoutPatterns` to a newline-separated list of glob patterns.
 Pattern mode only materialises files whose paths match the given patterns.
 Root-level files are **not** materialised unless explicitly included (e.g. `*.yml`).
 
-### When both are set – patterns win
+### When both are set — ⚠️ DOCUMENTATION DISCREPANCY
 
-If `sparseCheckoutDirectories` and `sparseCheckoutPatterns` are both present
-in the same `checkout` step, Azure DevOps uses `sparseCheckoutPatterns` and
-**silently ignores** `sparseCheckoutDirectories`.
+The Azure DevOps documentation states that when both `sparseCheckoutDirectories`
+and `sparseCheckoutPatterns` are set, `sparseCheckoutPatterns` wins and
+`sparseCheckoutDirectories` is silently ignored.
+
+**Build 712 (agent v4.266.2, git 2.43.0) proved the opposite:**
+`sparseCheckoutDirectories` won — cone mode was used and patterns were ignored.
+
+Raw git commands logged by the agent:
+```
+##[command]git sparse-checkout init --cone
+##[command]git sparse-checkout set FolderA tools
+```
+
+`CDN/**` (the pattern value) was never passed to git. `FolderA/a1.txt` was
+**PRESENT** and `CDN/cdnfile1.txt` was **ABSENT** — confirming directories won.
+
+> ⚠️ Do not rely on documented precedence across agent versions.
+> Test explicitly on your target agent. Full evidence in
+> `docs/SparseCheckout-TechnicalSupportDocument.md` — Section 8, and
+> `docs/DocumentationDiscrepancyReport.md`.
 
 ## Running inspection scripts locally
 

@@ -28,12 +28,12 @@
 
 ## Pipelines
 
-| Pipeline                   | File                                                                         | What it proves                                                              |
-| -------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Full checkout              | [`.azuredevops/full-checkout.yml`](.azuredevops/full-checkout.yml)           | Baseline – all files present                                                |
-| Sparse directories (cone)  | [`.azuredevops/sparse-directories.yml`](.azuredevops/sparse-directories.yml) | `sparseCheckoutDirectories: CDN` materialises CDN/ **and** root-level files |
-| Sparse patterns (non-cone) | [`.azuredevops/sparse-patterns.yml`](.azuredevops/sparse-patterns.yml)       | `sparseCheckoutPatterns: CDN/**` materialises only CDN/, root files absent  |
-| Both set (dirs win ⚠️)      | [`.azuredevops/sparse-both.yml`](.azuredevops/sparse-both.yml)               | When both are set, **directories won** on agent v4.266.2 / git 2.43.0 — contradicting documentation |
+| Pipeline                   | File                                                                         | What it proves                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Full checkout              | [`.azuredevops/full-checkout.yml`](.azuredevops/full-checkout.yml)           | Baseline – all files present                                                                        |
+| Sparse directories (cone)  | [`.azuredevops/sparse-directories.yml`](.azuredevops/sparse-directories.yml) | `sparseCheckoutDirectories: CDN` materialises CDN/ **and** root-level files                         |
+| Sparse patterns (non-cone) | [`.azuredevops/sparse-patterns.yml`](.azuredevops/sparse-patterns.yml)       | `sparseCheckoutPatterns: CDN/**` materialises only CDN/, root files absent                          |
+| Both set (dirs win ⚠️)     | [`.azuredevops/sparse-both.yml`](.azuredevops/sparse-both.yml)               | When both are set, **directories won** on agent v4.266.2 / git 2.43.0 — contradicting documentation |
 
 ---
 
@@ -97,6 +97,7 @@ Build 712 showed `FolderA/a1.txt` **PRESENT** and `CDN/cdnfile1.txt`
 silently ignored the patterns property.
 
 Build 712 raw log evidence:
+
 ```
 ##[command]git sparse-checkout init --cone
 ##[command]git sparse-checkout set FolderA tools
@@ -118,7 +119,7 @@ sentinel checks that expected CDN files but found FolderA files instead.
 │   full-checkout.yml          # Normal full checkout (baseline)
 │   sparse-directories.yml     # sparseCheckoutDirectories=CDN (cone mode)
 │   sparse-patterns.yml        # sparseCheckoutPatterns=CDN/** (non-cone)
-│   sparse-both.yml            # Both set; proves patterns win
+│   sparse-both.yml            # Both set; ⚠️ dirs won on Build 712 (contradicts docs)
 │
 CDN/
 │   cdnfile1.txt               # Sentinel – always present in CDN-targeting runs
