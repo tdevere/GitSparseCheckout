@@ -211,7 +211,6 @@ GIT_CONE_MODE      : true
 | Authoritative expected vs. observed comparison | `docs/ExpectedResults.md` — Section 4                                         |
 | Pipeline YAML under test (Finding 1)           | `.azuredevops/sparse-both.yml`                                                |
 | Pipeline YAML — dirs-only (Finding 2 baseline) | `.azuredevops/sparse-dirs.yml`                                                |
-| Reproduction test plan + agent prompt (RECO)   | `docs/ReproductionAgent-Profile.md`                                           |
 
 ---
 

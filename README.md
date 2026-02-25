@@ -189,11 +189,10 @@ docs/
 │   ExpectedResults.md         # Side-by-side comparison of expected log output
 │   Troubleshooting.md         # Common issues and fixes
 │   SparseCheckout-ADOServer2025-RootCauseAndResolution.md  # Finding 2 root cause
-│   CustomerWorkaround-Finding2.md     # Customer-facing workaround guide
-│   EngineeringEscalation-Finding2.md  # Engineering escalation write-up
-│   DocumentationDiscrepancyReport.md  # Both-set discrepancy report
-│   SparseCheckout-TechnicalSupportDocument.md
-│   LearningModule-SparseCheckout.md
+│   CustomerWorkaround-Finding2.md                          # Finding 2 workaround guide
+│   DocumentationDiscrepancyReport.md                       # Finding 1: both-set discrepancy
+│   SparseCheckout-TechnicalSupportDocument.md              # Full technical reference
+│   LearningModule-SparseCheckout.md                        # Learning content
 │
 RootFile1.yml                  # Root sentinel – present in cone mode, absent in pattern mode
 RootFile2.yml                  # Root sentinel

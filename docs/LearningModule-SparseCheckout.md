@@ -1,13 +1,11 @@
 # Learning Module: Azure DevOps Sparse Checkout — Pipeline Analysis and Real-World Behavior
 
-**Produced by:** [ADEL — Azure DevOps Engineering Learner](LearningAgent-Profile.md)  
 **Audience:** Azure DevOps Support Engineers (L1–L3)  
 **Prerequisites:** Familiarity with YAML pipeline basics; basic git concepts (clone, checkout, commit)  
 **Estimated time:** 90 minutes  
 **Format:** Self-paced reading with evidence review  
 **Live evidence repo:** `https://dev.azure.com/MCAPDevOpsOrg/PermaSamples/_git/GitSparseCheckout`  
-**Related docs:** `SparseCheckout-TechnicalSupportDocument.md`, `SME-Validation-QA.md`  
-**Evaluator profile:** [VALE — Validation Agent for Learning Evaluation](StudentAgent-Profile.md)
+**Related docs:** `SparseCheckout-TechnicalSupportDocument.md`
 
 ---
 
@@ -999,7 +997,6 @@ sparseCheckoutPatterns: |
 | [Azure Pipelines checkout YAML schema](https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/steps-checkout) | Official docs — read critically, the "patterns win" claim for the both-set case is not reliable on all agent versions |
 | [git-sparse-checkout man page](https://git-scm.com/docs/git-sparse-checkout)                                               | Authoritative source for cone mode vs non-cone mode behavior                                                          |
 | `docs/SparseCheckout-TechnicalSupportDocument.md` (this repo)                                                              | Full technical analysis with all four build results, YAML listings, and raw log evidence                              |
-| `docs/SME-Validation-QA.md` (this repo)                                                                                    | Point-by-point answers to the four SME validation questions with build evidence                                       |
 | Build 705 (full checkout baseline)                                                                                         | Pipeline 71, `full-checkout.yml` — all files present, clean baseline                                                  |
 | Build 709 (cone mode)                                                                                                      | Pipeline 72, `sparse-directories.yml` — CDN + root files, no FolderA                                                  |
 | Build 710 (pattern mode)                                                                                                   | Pipeline 73, `sparse-patterns.yml` — CDN only, ROOT_FILE_COUNT: 0                                                     |
@@ -1007,6 +1004,5 @@ sparseCheckoutPatterns: |
 
 ---
 
-_Learning module produced by [ADEL — Azure DevOps Engineering Learner](LearningAgent-Profile.md)_  
 _February 24, 2026 — Evidence base: live builds 705, 709, 710, 712_  
 _Agent: v4.266.2 · git: 2.43.0 · OS: Linux_
