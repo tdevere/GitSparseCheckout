@@ -1,0 +1,370 @@
+# =============================================================================
+# server2025-knob-test.yml
+# ADO Server 2025 – Sparse Checkout Feature-Knob Test Pipeline
+# =============================================================================
+#
+# PURPOSE:
+#   Prove that the silent no-op behaviour of sparseCheckoutDirectories on
+#   ADO Server 2025 (20.256.36719.x) is caused by the agent feature knob
+#   AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK defaulting to false.
+#
+#   Root cause (from azure-pipelines-agent source):
+#     AgentKnobs.cs – UseSparseCheckoutInCheckoutTask
+#       RuntimeKnobSource("AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK")
+#       BuiltInDefaultKnobSource("false")     ← OFF by default on-prem
+#     GitSourceProvider.cs – the ENTIRE git sparse-checkout block is wrapped:
+#       if (AgentKnobs.UseSparseCheckoutInCheckoutTask.GetValue(ctx).AsBoolean())
+#       { ... git sparse-checkout init / set ... }
+#     On cloud ADO Microsoft enables this server-side; on ADO Server 2025
+#     on-prem there is no PipelineFeatureSource or EnvironmentKnobSource —
+#     the knob stays false and sparse checkout is silently skipped.
+#
+# STRUCTURE:
+#   Job 1 – KNOB_OFF_BrokenControl
+#     sparseCheckoutDirectories set; knob NOT set.
+#     Expected: full checkout — FolderA PRESENT, FolderB PRESENT (bug).
+#     System.Debug=true to capture "sparseCheckout=false" debug line.
+#
+#   Job 2 – KNOB_ON_FixTest
+#     Same YAML, but pipeline variable
+#     AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK=true is added.
+#     Expected: sparse checkout active — FolderA PRESENT, FolderB ABSENT.
+#     System.Debug=true to capture "sparseCheckout=true" + git sparse-checkout.
+#
+#   Job 3 – SUMMARY (depends on both)
+#     Prints comparison table.
+#
+# PASS CRITERIA:
+#   KNOB_OFF : KNOB_STATUS=false, FOLDER_A=PRESENT, FOLDER_B=PRESENT (bug)
+#   KNOB_ON  : KNOB_STATUS=true,  FOLDER_A=PRESENT, FOLDER_B=ABSENT  (fix)
+#   Both must match to confirm the knob as root cause.
+#
+# SENTINEL FILES:
+#   FolderA/a1.txt  — PRESENT when FolderA is in the sparse set
+#   FolderB/b1.txt  — ABSENT  after fixing the knob (FolderA-only sparse set)
+#   root-notes.txt  — PRESENT (root files always present in sparse checkout)
+# =============================================================================
+
+name: "SparseDemo_KnobTest_$(Build.BuildId)"
+
+trigger: none
+pr:     none
+
+variables:
+  - name: agentPoolName
+    value: Default
+  - name: SOURCES_DIR
+    value: $(Build.SourcesDirectory)
+
+# ---------------------------------------------------------------------------
+# Job 1 – KNOB_OFF (no variable — reproduces the bug)
+# ---------------------------------------------------------------------------
+jobs:
+  - job: KNOB_OFF_BrokenControl
+    displayName: "KNOB_OFF – Sparse checkout silently ignored (no variable)"
+    pool:
+      name: $(agentPoolName)
+    workspace:
+      clean: all
+    variables:
+      - name: System.Debug
+        value: "true"   # capture debug log so we can see sparseCheckout=false
+    steps:
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        sparseCheckoutDirectories: FolderA
+
+      - powershell: |
+          Set-StrictMode -Version 2.0
+          $ErrorActionPreference = 'Continue'
+
+          function Write-Section($title) {
+              $rule = '=' * 70
+              Write-Host $rule
+              Write-Host "  $title"
+              Write-Host $rule
+          }
+
+          Write-Section "KNOB_OFF – Sparse Checkout Knob Status Check"
+
+          # ---- Knob evidence ------------------------------------------------
+          $knobVar = $env:AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK
+          if ([string]::IsNullOrEmpty($knobVar)) {
+              $knobStatus = "false (not set – uses built-in default)"
+          } else {
+              $knobStatus = $knobVar
+          }
+          Write-Host ("KNOB_VAR_VALUE  : {0}" -f $knobStatus)
+
+          # ---- Workspace evidence -------------------------------------------
+          $sourcesDir = $env:SOURCES_DIR
+          Write-Host ("SOURCES_DIR     : {0}" -f $sourcesDir)
+
+          $folderA = Join-Path $sourcesDir "FolderA"
+          $folderB = Join-Path $sourcesDir "FolderB"
+          $cdnDir  = Join-Path $sourcesDir "CDN"
+          $rootTxt = Join-Path $sourcesDir "root-notes.txt"
+          $a1      = Join-Path $folderA "a1.txt"
+          $b1      = Join-Path $folderB "b1.txt"
+
+          $folderAExists = if (Test-Path $folderA) { "PRESENT" } else { "ABSENT" }
+          $folderBExists = if (Test-Path $folderB) { "PRESENT" } else { "ABSENT" }
+          $cdnExists     = if (Test-Path $cdnDir)  { "PRESENT" } else { "ABSENT" }
+          $rootExists    = if (Test-Path $rootTxt) { "PRESENT" } else { "ABSENT" }
+          $a1Exists      = if (Test-Path $a1)      { "PRESENT" } else { "ABSENT" }
+          $b1Exists      = if (Test-Path $b1)      { "PRESENT" } else { "ABSENT" }
+
+          Write-Host ("FOLDER_A        : {0}" -f $folderAExists)
+          Write-Host ("FOLDER_B        : {0}" -f $folderBExists)
+          Write-Host ("CDN_DIR         : {0}" -f $cdnExists)
+          Write-Host ("ROOT_NOTES_TXT  : {0}" -f $rootExists)
+          Write-Host ("SENTINEL_A1     : {0}" -f $a1Exists)
+          Write-Host ("SENTINEL_B1     : {0}" -f $b1Exists)
+
+          # ---- Verify sparse config in .git ---------------------------------
+          $sparseInfo = & git -C $sourcesDir sparse-checkout list 2>&1
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host ("GIT_SPARSE_LIST : {0}" -f ($sparseInfo -join ", "))
+          } else {
+              Write-Host "GIT_SPARSE_LIST : (sparse-checkout not active)"
+          }
+
+          # ---- Pass/Fail logic ----------------------------------------------
+          # BUG EXPECTED: knob off means full checkout → FolderB will be PRESENT
+          if ($folderBExists -eq "PRESENT" -and $folderAExists -eq "PRESENT") {
+              $verdict = "PASS-AS-EXPECTED (full checkout confirmed — bug present)"
+          } else {
+              $verdict = "UNEXPECTED (sparse checkout ran without knob?)"
+          }
+          Write-Host ("VERDICT         : {0}" -f $verdict)
+
+          # ---- Output variables for SUMMARY ---------------------------------
+          Write-Host "##vso[task.setvariable variable=knob_off_folderA;isOutput=true]$folderAExists"
+          Write-Host "##vso[task.setvariable variable=knob_off_folderB;isOutput=true]$folderBExists"
+          Write-Host "##vso[task.setvariable variable=knob_off_verdict;isOutput=true]$verdict"
+          Write-Host "##vso[task.setvariable variable=knob_off_knobStatus;isOutput=true]$knobStatus"
+        name: knob_off_check
+        displayName: "Check workspace (knob OFF)"
+        env:
+          SOURCES_DIR: $(Build.SourcesDirectory)
+        continueOnError: true
+
+# ---------------------------------------------------------------------------
+# Job 2 – KNOB_ON (variable set to true — the fix)
+# ---------------------------------------------------------------------------
+  - job: KNOB_ON_FixTest
+    displayName: "KNOB_ON – Sparse checkout enabled via pipeline variable"
+    pool:
+      name: $(agentPoolName)
+    workspace:
+      clean: all
+    variables:
+      - name: System.Debug
+        value: "true"   # capture debug log so we can see sparseCheckout=true
+      # -----------------------------------------------------------------------
+      # THE FIX: Setting this RuntimeKnob variable to true enables the
+      # sparse checkout code block in GitSourceProvider.GetSourceAsync().
+      # Without this, the knob defaults to false and the entire
+      # git sparse-checkout init/set block is silently skipped.
+      # -----------------------------------------------------------------------
+      - name: AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK
+        value: "true"
+    steps:
+      - checkout: self
+        clean: true
+        persistCredentials: true
+        sparseCheckoutDirectories: FolderA
+
+      - powershell: |
+          Set-StrictMode -Version 2.0
+          $ErrorActionPreference = 'Continue'
+
+          function Write-Section($title) {
+              $rule = '=' * 70
+              Write-Host $rule
+              Write-Host "  $title"
+              Write-Host $rule
+          }
+
+          Write-Section "KNOB_ON – Sparse Checkout Knob Status Check"
+
+          # ---- Knob evidence ------------------------------------------------
+          $knobVar = $env:AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK
+          if ([string]::IsNullOrEmpty($knobVar)) {
+              $knobStatus = "false (not set)"
+          } else {
+              $knobStatus = $knobVar
+          }
+          Write-Host ("KNOB_VAR_VALUE  : {0}" -f $knobStatus)
+
+          # ---- Workspace evidence -------------------------------------------
+          $sourcesDir = $env:SOURCES_DIR
+          Write-Host ("SOURCES_DIR     : {0}" -f $sourcesDir)
+
+          $folderA = Join-Path $sourcesDir "FolderA"
+          $folderB = Join-Path $sourcesDir "FolderB"
+          $cdnDir  = Join-Path $sourcesDir "CDN"
+          $rootTxt = Join-Path $sourcesDir "root-notes.txt"
+          $a1      = Join-Path $folderA "a1.txt"
+          $b1      = Join-Path $folderB "b1.txt"
+
+          $folderAExists = if (Test-Path $folderA) { "PRESENT" } else { "ABSENT" }
+          $folderBExists = if (Test-Path $folderB) { "PRESENT" } else { "ABSENT" }
+          $cdnExists     = if (Test-Path $cdnDir)  { "PRESENT" } else { "ABSENT" }
+          $rootExists    = if (Test-Path $rootTxt) { "PRESENT" } else { "ABSENT" }
+          $a1Exists      = if (Test-Path $a1)      { "PRESENT" } else { "ABSENT" }
+          $b1Exists      = if (Test-Path $b1)      { "PRESENT" } else { "ABSENT" }
+
+          Write-Host ("FOLDER_A        : {0}" -f $folderAExists)
+          Write-Host ("FOLDER_B        : {0}" -f $folderBExists)
+          Write-Host ("CDN_DIR         : {0}" -f $cdnExists)
+          Write-Host ("ROOT_NOTES_TXT  : {0}" -f $rootExists)
+          Write-Host ("SENTINEL_A1     : {0}" -f $a1Exists)
+          Write-Host ("SENTINEL_B1     : {0}" -f $b1Exists)
+
+          # ---- Verify sparse config in .git ---------------------------------
+          $sparseInfo = & git -C $sourcesDir sparse-checkout list 2>&1
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host ("GIT_SPARSE_LIST : {0}" -f ($sparseInfo -join ", "))
+          } else {
+              Write-Host "GIT_SPARSE_LIST : (sparse-checkout not active)"
+          }
+
+          # ---- Pass/Fail logic ----------------------------------------------
+          # FIX EXPECTED: knob on means sparse checkout → FolderA PRESENT, FolderB ABSENT
+          if ($folderAExists -eq "PRESENT" -and $folderBExists -eq "ABSENT") {
+              $verdict = "PASS (sparse checkout active — fix confirmed)"
+          } elseif ($folderAExists -eq "PRESENT" -and $folderBExists -eq "PRESENT") {
+              $verdict = "FAIL (full checkout still — knob variable not picked up)"
+          } else {
+              $verdict = "FAIL (unexpected workspace state)"
+          }
+          Write-Host ("VERDICT         : {0}" -f $verdict)
+
+          # ---- Output variables for SUMMARY ---------------------------------
+          Write-Host "##vso[task.setvariable variable=knob_on_folderA;isOutput=true]$folderAExists"
+          Write-Host "##vso[task.setvariable variable=knob_on_folderB;isOutput=true]$folderBExists"
+          Write-Host "##vso[task.setvariable variable=knob_on_verdict;isOutput=true]$verdict"
+          Write-Host "##vso[task.setvariable variable=knob_on_knobStatus;isOutput=true]$knobStatus"
+        name: knob_on_check
+        displayName: "Check workspace (knob ON)"
+        env:
+          SOURCES_DIR: $(Build.SourcesDirectory)
+          AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK: "true"
+        continueOnError: true
+
+# ---------------------------------------------------------------------------
+# Job 3 – SUMMARY
+# ---------------------------------------------------------------------------
+  - job: SUMMARY
+    displayName: "SUMMARY – Knob On vs Off Comparison"
+    pool:
+      name: $(agentPoolName)
+    workspace:
+      clean: all
+    dependsOn:
+      - KNOB_OFF_BrokenControl
+      - KNOB_ON_FixTest
+    condition: always()
+    variables:
+      - name: off_folderA
+        value: $[ dependencies.KNOB_OFF_BrokenControl.outputs['knob_off_check.knob_off_folderA'] ]
+      - name: off_folderB
+        value: $[ dependencies.KNOB_OFF_BrokenControl.outputs['knob_off_check.knob_off_folderB'] ]
+      - name: off_verdict
+        value: $[ dependencies.KNOB_OFF_BrokenControl.outputs['knob_off_check.knob_off_verdict'] ]
+      - name: off_knob
+        value: $[ dependencies.KNOB_OFF_BrokenControl.outputs['knob_off_check.knob_off_knobStatus'] ]
+      - name: on_folderA
+        value: $[ dependencies.KNOB_ON_FixTest.outputs['knob_on_check.knob_on_folderA'] ]
+      - name: on_folderB
+        value: $[ dependencies.KNOB_ON_FixTest.outputs['knob_on_check.knob_on_folderB'] ]
+      - name: on_verdict
+        value: $[ dependencies.KNOB_ON_FixTest.outputs['knob_on_check.knob_on_verdict'] ]
+      - name: on_knob
+        value: $[ dependencies.KNOB_ON_FixTest.outputs['knob_on_check.knob_on_knobStatus'] ]
+    steps:
+      - checkout: none
+
+      - powershell: |
+          Set-StrictMode -Version 2.0
+          $ErrorActionPreference = 'Continue'
+
+          $rule = '=' * 70
+
+          Write-Host $rule
+          Write-Host "  ADO SERVER 2025 – SPARSE CHECKOUT KNOB TEST SUMMARY"
+          Write-Host $rule
+          Write-Host ""
+          Write-Host "  Root cause: AgentKnobs.UseSparseCheckoutInCheckoutTask"
+          Write-Host "  File:       src/Agent.Sdk/Knob/AgentKnobs.cs (~line 900)"
+          Write-Host "  Knob name:  AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK"
+          Write-Host "  Default:    false (BuiltInDefaultKnobSource)"
+          Write-Host "  Sources:    RuntimeKnobSource only (no PipelineFeatureSource,"
+          Write-Host "              no EnvironmentKnobSource)"
+          Write-Host "  Effect:     The ENTIRE git sparse-checkout block in"
+          Write-Host "              GitSourceProvider.GetSourceAsync() is gated:"
+          Write-Host "              if (AgentKnobs.UseSparseCheckoutInCheckoutTask"
+          Write-Host "                      .GetValue(ctx).AsBoolean()) { ... }"
+          Write-Host "  Cloud ADO:  Microsoft enables via server-side FF."
+          Write-Host "  On-prem:    No server FF path → stays false → silent no-op."
+          Write-Host ""
+          Write-Host $rule
+          Write-Host "  COMPARISON TABLE"
+          Write-Host $rule
+          Write-Host ""
+
+          $offKnob    = $env:OFF_KNOB
+          $offFolderA = $env:OFF_FOLDER_A
+          $offFolderB = $env:OFF_FOLDER_B
+          $offVerdict = $env:OFF_VERDICT
+
+          $onKnob     = $env:ON_KNOB
+          $onFolderA  = $env:ON_FOLDER_A
+          $onFolderB  = $env:ON_FOLDER_B
+          $onVerdict  = $env:ON_VERDICT
+
+          Write-Host ("  {0,-30} {1,-18} {2,-18}" -f "METRIC", "KNOB_OFF (bug)", "KNOB_ON (fix)")
+          Write-Host ("  {0,-30} {1,-18} {2,-18}" -f ('-'*30), ('-'*18), ('-'*18))
+          Write-Host ("  {0,-30} {1,-18} {2,-18}" -f "Knob variable value", $offKnob, $onKnob)
+          Write-Host ("  {0,-30} {1,-18} {2,-18}" -f "FolderA/ present?", $offFolderA, $onFolderA)
+          Write-Host ("  {0,-30} {1,-18} {2,-18}" -f "FolderB/ present?", $offFolderB, $onFolderB)
+          Write-Host ""
+          Write-Host ("  KNOB_OFF VERDICT : {0}" -f $offVerdict)
+          Write-Host ("  KNOB_ON  VERDICT : {0}" -f $onVerdict)
+          Write-Host ""
+
+          # ---- Overall verdict ----------------------------------------------
+          $offOk = $offFolderA -eq "PRESENT" -and $offFolderB -eq "PRESENT"
+          $onOk  = $onFolderA  -eq "PRESENT" -and $onFolderB  -eq "ABSENT"
+
+          if ($offOk -and $onOk) {
+              $overall = "PASS – Root cause confirmed. Pipeline variable is the fix."
+          } elseif ($onOk -and (-not $offOk)) {
+              $overall = "PARTIAL – Fix job passed but control job gave unexpected result."
+          } elseif ($offOk -and (-not $onOk)) {
+              $overall = "FAIL – Bug reproduced but pipeline variable did NOT fix it."
+              Write-Host "  NOTE: If KNOB_ON also shows full checkout, the server may"
+              Write-Host "        not be passing the variable to the checkout plugin."
+              Write-Host "        Check debug log for 'sparseCheckout=false' vs 'true'."
+          } else {
+              $overall = "INCONCLUSIVE – Check individual job logs."
+          }
+
+          Write-Host $rule
+          Write-Host ("  OVERALL_VERDICT  : {0}" -f $overall)
+          Write-Host $rule
+
+          exit 0
+        displayName: "Print knob comparison summary"
+        env:
+          OFF_KNOB:     $(off_knob)
+          OFF_FOLDER_A: $(off_folderA)
+          OFF_FOLDER_B: $(off_folderB)
+          OFF_VERDICT:  $(off_verdict)
+          ON_KNOB:      $(on_knob)
+          ON_FOLDER_A:  $(on_folderA)
+          ON_FOLDER_B:  $(on_folderB)
+          ON_VERDICT:   $(on_verdict)
+        continueOnError: true
