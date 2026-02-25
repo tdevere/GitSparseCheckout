@@ -64,9 +64,19 @@ What caused the failure?
 Azure DevOps offers two sparse checkout properties:
 
 ```yaml
-sparseCheckoutDirectories: CDN        # cone mode
-sparseCheckoutPatterns: |             # pattern mode
-  CDN/**
+# cone mode — from sparse-directories.yml (Build 709)
+- checkout: self
+  clean: true
+  persistCredentials: true
+  sparseCheckoutDirectories: CDN tools
+
+# pattern mode — from sparse-patterns.yml (Build 710)
+- checkout: self
+  clean: true
+  persistCredentials: true
+  sparseCheckoutPatterns: |
+    CDN/**
+    tools/**
 ```
 
 The property you choose determines the git mode. The mode determines whether root-level
