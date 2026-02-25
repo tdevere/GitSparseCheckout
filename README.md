@@ -28,12 +28,15 @@
 
 ## Pipelines
 
-| Pipeline                   | File                                                                         | What it proves                                                                                      |
-| -------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Full checkout              | [`.azuredevops/full-checkout.yml`](.azuredevops/full-checkout.yml)           | Baseline – all files present                                                                        |
-| Sparse directories (cone)  | [`.azuredevops/sparse-directories.yml`](.azuredevops/sparse-directories.yml) | `sparseCheckoutDirectories: CDN` materialises CDN/ **and** root-level files                         |
-| Sparse patterns (non-cone) | [`.azuredevops/sparse-patterns.yml`](.azuredevops/sparse-patterns.yml)       | `sparseCheckoutPatterns: CDN/**` materialises only CDN/, root files absent                          |
-| Both set (dirs win ⚠️)     | [`.azuredevops/sparse-both.yml`](.azuredevops/sparse-both.yml)               | When both are set, **directories won** on agent v4.266.2 / git 2.43.0 — contradicting documentation |
+| Pipeline                   | File                                                                                                             | What it proves                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Full checkout              | [`.azuredevops/full-checkout.yml`](.azuredevops/full-checkout.yml)                                               | Baseline – all files present                                                                        |
+| Sparse directories (cone)  | [`.azuredevops/sparse-directories.yml`](.azuredevops/sparse-directories.yml)                                     | `sparseCheckoutDirectories: CDN` materialises CDN/ **and** root-level files                         |
+| Sparse patterns (non-cone) | [`.azuredevops/sparse-patterns.yml`](.azuredevops/sparse-patterns.yml)                                           | `sparseCheckoutPatterns: CDN/**` materialises only CDN/, root files absent                          |
+| Both set (dirs win ⚠️)     | [`.azuredevops/sparse-both.yml`](.azuredevops/sparse-both.yml)                                                   | When both are set, **directories won** on agent v4.266.2 / git 2.43.0 — contradicting documentation |
+| **Server 2025 knob test**  | [`.azuredevops/server2025-knob-test.yml`](.azuredevops/server2025-knob-test.yml)                                 | Proves `AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK=true` is the fix on ADO Server 2025              |
+| **Server 2025 workaround** | [`.azuredevops/server2025-workaround-test.yml`](.azuredevops/server2025-workaround-test.yml)                     | Validates post-checkout prune and manual sparse-clone workarounds on ADO Server 2025                |
+| **Server 2025 workaround (sparse)** | [`.azuredevops/server2025-workaround-sparse.yml`](.azuredevops/server2025-workaround-sparse.yml)      | Minimal workaround pipeline demonstrating the single-variable fix                                   |
 
 ---
 
@@ -112,14 +115,44 @@ sentinel checks that expected CDN files but found FolderA files instead.
 
 ---
 
+## Finding 2 — ADO Server 2025: sparse checkout silently ignored
+
+On **Azure DevOps Server 2025 (on-premises)**, `sparseCheckoutDirectories` and
+`sparseCheckoutPatterns` have **no effect**. The agent performs a full clone
+every time with no error or warning.
+
+**Root cause:** The agent feature knob `UseSparseCheckoutInCheckoutTask`
+defaults to `false` and has no server-side activation on-premises (unlike
+Azure DevOps cloud where Microsoft enables it via a feature flag).
+
+**Fix — add one pipeline variable:**
+
+```yaml
+variables:
+  - name: AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK
+    value: "true"
+```
+
+Validated in **Build 109** on ADO Server 2025 (`20.256.36719.1`, agent
+v4.260.0). Side-by-side jobs confirmed: knob off → full checkout; knob on →
+correct sparse checkout.
+
+Full analysis: [`docs/SparseCheckout-ADOServer2025-RootCauseAndResolution.md`](docs/SparseCheckout-ADOServer2025-RootCauseAndResolution.md)  
+Customer workaround guide: [`docs/CustomerWorkaround-Finding2.md`](docs/CustomerWorkaround-Finding2.md)
+
+---
+
 ## Repo layout
 
 ```
 .azuredevops/
-│   full-checkout.yml          # Normal full checkout (baseline)
-│   sparse-directories.yml     # sparseCheckoutDirectories=CDN (cone mode)
-│   sparse-patterns.yml        # sparseCheckoutPatterns=CDN/** (non-cone)
-│   sparse-both.yml            # Both set; ⚠️ dirs won on Build 712 (contradicts docs)
+│   full-checkout.yml                    # Normal full checkout (baseline)
+│   sparse-directories.yml               # sparseCheckoutDirectories=CDN (cone mode)
+│   sparse-patterns.yml                  # sparseCheckoutPatterns=CDN/** (non-cone)
+│   sparse-both.yml                      # Both set; ⚠️ dirs won on Build 712 (contradicts docs)
+│   server2025-knob-test.yml             # Finding 2: knob on vs off — proves root cause
+│   server2025-workaround-test.yml       # Finding 2: validates post-checkout and manual clone workarounds
+│   server2025-workaround-sparse.yml     # Finding 2: minimal single-variable fix demo
 │
 CDN/
 │   cdnfile1.txt               # Sentinel – always present in CDN-targeting runs
@@ -140,13 +173,27 @@ FolderB/
 │   b2.txt
 │
 tools/
-│   inspect-workspace.ps1      # Cross-platform inspection (PowerShell 5.1+)
-│   inspect-workspace.sh       # Cross-platform inspection (bash)
+│   inspect-workspace.ps1      # Workspace inspection (PowerShell 5.1+)
+│   inspect-workspace.sh       # Workspace inspection (bash)
+│   fetch-build-logs.ps1       # Fetch ADO build logs via REST API
+│   create-and-run-knob-pipeline.ps1   # (ops) create & queue the knob-test pipeline
+│   queue-knob-build.ps1               # (ops) queue a build via the builds API
+│   get-build-logs.ps1                 # (ops) fetch and display build log content
+│   get-build-logs2.ps1                # (ops) alternate log fetcher
+│   get-build109-logs.ps1              # (ops) log dump for Build 109 (root cause evidence)
+│   get-build-issues.ps1               # (ops) show build issues/errors from timeline
+│   inspect-pipeline-defs.ps1          # (ops) inspect pipeline definition details
 │
 docs/
 │   README.md                  # How to run and read the results
 │   ExpectedResults.md         # Side-by-side comparison of expected log output
 │   Troubleshooting.md         # Common issues and fixes
+│   SparseCheckout-ADOServer2025-RootCauseAndResolution.md  # Finding 2 root cause
+│   CustomerWorkaround-Finding2.md     # Customer-facing workaround guide
+│   EngineeringEscalation-Finding2.md  # Engineering escalation write-up
+│   DocumentationDiscrepancyReport.md  # Both-set discrepancy report
+│   SparseCheckout-TechnicalSupportDocument.md
+│   LearningModule-SparseCheckout.md
 │
 RootFile1.yml                  # Root sentinel – present in cone mode, absent in pattern mode
 RootFile2.yml                  # Root sentinel
