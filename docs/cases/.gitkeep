@@ -1,0 +1,4 @@
+# This directory holds per-case investigation documents.
+# Copy docs/CaseTemplate.md here at the start of each new case.
+# File naming: YYYY-MM-DD-<slug>.md
+# These files are committed to the case branch and merged to main at close-out.

@@ -144,6 +144,27 @@
         "clear": false
       },
       "problemMatcher": []
+    },
+    {
+      "label": "New Case Setup",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NonInteractive",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "$slug = Read-Host 'Case slug (e.g. sparse-onprem-silent)'; $date = Get-Date -Format 'yyyy-MM-dd'; $branch = \"case/$date-$slug\"; $docName = \"$date-$slug.md\"; $destDir = Join-Path '${workspaceFolder}' 'docs' 'cases'; $dest = Join-Path $destDir $docName; git -C '${workspaceFolder}' checkout main; git -C '${workspaceFolder}' pull; git -C '${workspaceFolder}' checkout -b $branch; Copy-Item (Join-Path '${workspaceFolder}' 'docs' 'CaseTemplate.md') $dest; Write-Host \"Created branch $branch\"; Write-Host \"Case doc: docs/cases/$docName\"; Write-Host 'Fill in Phase 1 (Intake) and follow WORKFLOW.md'"
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "clear": true
+      },
+      "problemMatcher": []
     }
   ]
 }

@@ -130,3 +130,46 @@ wrapped with `=` rules of 70 characters.
 - Script changes must maintain backward compatibility with PowerShell 5.1.
 - Do not rename the `SPARSE_MODE` or `SOURCES_DIR` environment variable names –
   both scripts and pipeline YAMLs depend on them.
+
+---
+
+## New case — agent startup ritual
+
+When the user says "new case" or starts describing an ADO pipeline issue:
+
+1. Ask for (or extract from context): ADO platform (cloud vs on-prem + version),
+   agent version, git version, agent OS, the customer's `checkout:` YAML snippet,
+   and a build URL or log excerpt.
+2. Check known issues first:
+   - Full clone on ADO Server 2025 despite sparse config →
+     `docs/SparseCheckout-ADOServer2025-RootCauseAndResolution.md`
+   - Wrong folder when both `sparseCheckoutDirectories` + `sparseCheckoutPatterns`
+     are set → `docs/DocumentationDiscrepancyReport.md`
+   - `partiallySucceeded` + exit 127 → `docs/Troubleshooting.md`
+3. If not a known issue: create branch `case/YYYY-MM-DD-<slug>` off `main`,
+   copy `docs/CaseTemplate.md` to `docs/cases/YYYY-MM-DD-<slug>.md`, and
+   open it for editing.
+4. Follow `WORKFLOW.md` phases in order. Do not skip Phase 2 (baseline).
+5. For every hypothesis pipeline created, follow all pipeline YAML conventions
+   in this file (2-space indent, `trigger: none`, `workspace: clean: all`, etc.).
+6. All new log evidence lines must use `SCREAMING_SNAKE_CASE` tags.
+
+---
+
+## Close-out — agent ritual
+
+When a case reaches resolution:
+
+1. Confirm the case doc `docs/cases/YYYY-MM-DD-<slug>.md` has all 8 phases filled.
+2. Decide whether a new root-cause class was found:
+   - **Yes** → add a Finding to `docs/DocumentationDiscrepancyReport.md` (or
+     create `docs/<Topic>-RootCauseAndResolution.md`), add a Lesson to
+     `docs/LearningModule-SparseCheckout.md`, update `docs/ExpectedResults.md`.
+   - **No** → skip doc updates.
+3. If `WORKFLOW.md` had gaps during this case, promote accepted gaps into the
+   relevant phase and clear the `## Workflow Gaps` appendix.
+4. Commit all changes on the case branch with message:
+   `case(<slug>): close out — <one-line summary>`
+5. Push the branch and open a PR to `main`; squash-merge.
+6. After merge: `git push origin main:backup/main-YYYY-MM-DD`
+7. Push `main` to GitHub — the updated template is live for the next case.
