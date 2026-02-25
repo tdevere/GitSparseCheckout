@@ -19,7 +19,7 @@
 
 > Answer before reading. Record your answers — compare to post-test at the end.
 
-**P1.** A pipeline uses `sparseCheckoutDirectories: CDN`. The repo has `CDN/`, `FolderA/`, `README.md`, and `config.json` at the root. What will the workspace contain?
+**P1.** A pipeline running on **Azure DevOps Services (cloud)** uses `sparseCheckoutDirectories: CDN`. The repo has `CDN/`, `FolderA/`, `README.md`, and `config.json` at the root. What will the workspace contain?
 
 - (a) Only `CDN/`
 - (b) `CDN/`, `README.md`, and `config.json`
@@ -33,7 +33,7 @@
 - (c) `sparseCheckoutDirectories` is only supported on Azure DevOps cloud
 - (d) The `git sparse-checkout` command is missing from the agent machine
 
-**P3.** You see this in a pipeline log:
+**P3.** You see this in a log from a pipeline running on **Azure DevOps Services (cloud)**:
 
 ```
 ##[command]git sparse-checkout init --cone
@@ -230,19 +230,19 @@ Validated in Build 109 on ADO Server 2025 (`20.256.36719.1`, agent v4.260.0).
 
 > Compare your answers to the pre-test. Answer key below.
 
-**Q1.** A customer needs only `api/` and `contracts/` in their workspace with **no root files**.
+**Q1.** A customer on **Azure DevOps Services (cloud)** needs only `api/` and `contracts/` in their workspace with **no root files**.
 Write the correct checkout YAML.
 
 *(Write the YAML — no multiple choice.)*
 
 **Q2.** A colleague says: "the docs say `sparseCheckoutPatterns` wins when both properties are
-set — so patterns will be used." The customer is on agent v4.266.2 / git 2.43.0. What do you say,
+set — so patterns will be used." The customer is on **Azure DevOps Services (cloud)**, agent v4.266.2 / git 2.43.0. What do you say,
 and what evidence would you check?
 
 *(Short answer.)*
 
-**Q3.** A customer on ADO Server 2025 says sparse checkout stopped working after they migrated
-from Azure DevOps cloud. Agent is v4.260.0, YAML is unchanged, no errors in the log. What is
+**Q3.** A customer on **Azure DevOps Server 2025 (on-premises)** says sparse checkout stopped working after they migrated
+from Azure DevOps Services (cloud). Agent is v4.260.0, YAML is unchanged, no errors in the log. What is
 the cause and fix?
 
 - (a) Reinstall the agent
