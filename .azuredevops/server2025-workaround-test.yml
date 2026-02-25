@@ -450,7 +450,7 @@ jobs:
         condition: always()
         continueOnError: true
 
-# =============================================================================
+  # =============================================================================
   # JOB 4 — TEST: Workaround B Efficient (true sparse network clone)
   #
   # This is the PERFORMANCE-PREFERRED workaround.
@@ -479,7 +479,6 @@ jobs:
       - name: jobVerdict
         value: "NOT-RUN"
     steps:
-
       # -----------------------------------------------------------------------
       # BE-1. Skip the broken task entirely — do not let it touch the repo.
       # -----------------------------------------------------------------------
@@ -645,9 +644,9 @@ jobs:
     workspace:
       clean: all
     variables:
-      controlVerdict:      $[ dependencies.CONTROL_BrokenBehavior.outputs['ControlVerdict.jobVerdict'] ]
-      workaroundAResult:   $[ dependencies.TEST_WorkaroundA.outputs['WorkaroundAVerdict.jobVerdict'] ]
-      workaroundBResult:   $[ dependencies.TEST_WorkaroundB.outputs['WorkaroundBVerdict.jobVerdict'] ]
+      controlVerdict: $[ dependencies.CONTROL_BrokenBehavior.outputs['ControlVerdict.jobVerdict'] ]
+      workaroundAResult: $[ dependencies.TEST_WorkaroundA.outputs['WorkaroundAVerdict.jobVerdict'] ]
+      workaroundBResult: $[ dependencies.TEST_WorkaroundB.outputs['WorkaroundBVerdict.jobVerdict'] ]
       workaroundBEffResult: $[ dependencies.TEST_WorkaroundB_Efficient.outputs['WorkaroundBEfficientVerdict.jobVerdict'] ]
     steps:
       - checkout: none

@@ -48,7 +48,7 @@
 name: "SparseDemo_KnobTest_$(Build.BuildId)"
 
 trigger: none
-pr:     none
+pr: none
 
 variables:
   - name: agentPoolName
@@ -68,7 +68,7 @@ jobs:
       clean: all
     variables:
       - name: System.Debug
-        value: "true"   # capture debug log so we can see sparseCheckout=false
+        value: "true" # capture debug log so we can see sparseCheckout=false
     steps:
       - checkout: self
         clean: true
@@ -150,9 +150,9 @@ jobs:
           SOURCES_DIR: $(Build.SourcesDirectory)
         continueOnError: true
 
-# ---------------------------------------------------------------------------
-# Job 2 – KNOB_ON (variable set to true — the fix)
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Job 2 – KNOB_ON (variable set to true — the fix)
+  # ---------------------------------------------------------------------------
   - job: KNOB_ON_FixTest
     displayName: "KNOB_ON – Sparse checkout enabled via pipeline variable"
     pool:
@@ -161,7 +161,7 @@ jobs:
       clean: all
     variables:
       - name: System.Debug
-        value: "true"   # capture debug log so we can see sparseCheckout=true
+        value: "true" # capture debug log so we can see sparseCheckout=true
       # -----------------------------------------------------------------------
       # THE FIX: Setting this RuntimeKnob variable to true enables the
       # sparse checkout code block in GitSourceProvider.GetSourceAsync().
@@ -254,9 +254,9 @@ jobs:
           AGENT_USE_SPARSE_CHECKOUT_IN_CHECKOUT_TASK: "true"
         continueOnError: true
 
-# ---------------------------------------------------------------------------
-# Job 3 – SUMMARY
-# ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Job 3 – SUMMARY
+  # ---------------------------------------------------------------------------
   - job: SUMMARY
     displayName: "SUMMARY – Knob On vs Off Comparison"
     pool:
@@ -359,12 +359,12 @@ jobs:
           exit 0
         displayName: "Print knob comparison summary"
         env:
-          OFF_KNOB:     $(off_knob)
+          OFF_KNOB: $(off_knob)
           OFF_FOLDER_A: $(off_folderA)
           OFF_FOLDER_B: $(off_folderB)
-          OFF_VERDICT:  $(off_verdict)
-          ON_KNOB:      $(on_knob)
-          ON_FOLDER_A:  $(on_folderA)
-          ON_FOLDER_B:  $(on_folderB)
-          ON_VERDICT:   $(on_verdict)
+          OFF_VERDICT: $(off_verdict)
+          ON_KNOB: $(on_knob)
+          ON_FOLDER_A: $(on_folderA)
+          ON_FOLDER_B: $(on_folderB)
+          ON_VERDICT: $(on_verdict)
         continueOnError: true

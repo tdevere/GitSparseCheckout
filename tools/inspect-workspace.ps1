@@ -25,26 +25,26 @@ $ErrorActionPreference = 'Continue'   # never abort the build
 # Resolve workspace root
 # ---------------------------------------------------------------------------
 $sourcesDir = if ($env:SOURCES_DIR) { $env:SOURCES_DIR } else { (Get-Location).Path }
-$sparseMode = if ($env:SPARSE_MODE)  { $env:SPARSE_MODE  } else { 'UNKNOWN' }
+$sparseMode = if ($env:SPARSE_MODE) { $env:SPARSE_MODE } else { 'UNKNOWN' }
 
 # ---------------------------------------------------------------------------
 # Sentinel paths to verify
 # ---------------------------------------------------------------------------
 $sentinels = [ordered]@{
-    'CDN/cdnfile1.txt'          = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES','SPARSE-PATTERNS','SPARSE-BOTH-PATTERNS-WIN') }
-    'CDN/cdnfile2.txt'          = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES','SPARSE-PATTERNS','SPARSE-BOTH-PATTERNS-WIN') }
-    'CDN/styles.css'            = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES','SPARSE-PATTERNS','SPARSE-BOTH-PATTERNS-WIN') }
-    'CDN/bundle.js'             = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES','SPARSE-PATTERNS','SPARSE-BOTH-PATTERNS-WIN') }
-    'CDN/nested/cdnfile2.txt'   = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES','SPARSE-PATTERNS','SPARSE-BOTH-PATTERNS-WIN') }
-    'CDN/nested/deep/asset.json'= @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES','SPARSE-PATTERNS','SPARSE-BOTH-PATTERNS-WIN') }
-    'FolderA/a1.txt'            = @{ ExpectIn = @('FULL-CHECKOUT') }
-    'FolderA/a2.txt'            = @{ ExpectIn = @('FULL-CHECKOUT') }
-    'FolderB/b1.txt'            = @{ ExpectIn = @('FULL-CHECKOUT') }
-    'FolderB/b2.txt'            = @{ ExpectIn = @('FULL-CHECKOUT') }
-    'RootFile1.yml'             = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES') }
-    'RootFile2.yml'             = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES') }
-    'config.json'               = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES') }
-    'root-notes.txt'            = @{ ExpectIn = @('FULL-CHECKOUT','SPARSE-DIRECTORIES') }
+    'CDN/cdnfile1.txt'           = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES', 'SPARSE-PATTERNS', 'SPARSE-BOTH-PATTERNS-WIN') }
+    'CDN/cdnfile2.txt'           = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES', 'SPARSE-PATTERNS', 'SPARSE-BOTH-PATTERNS-WIN') }
+    'CDN/styles.css'             = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES', 'SPARSE-PATTERNS', 'SPARSE-BOTH-PATTERNS-WIN') }
+    'CDN/bundle.js'              = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES', 'SPARSE-PATTERNS', 'SPARSE-BOTH-PATTERNS-WIN') }
+    'CDN/nested/cdnfile2.txt'    = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES', 'SPARSE-PATTERNS', 'SPARSE-BOTH-PATTERNS-WIN') }
+    'CDN/nested/deep/asset.json' = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES', 'SPARSE-PATTERNS', 'SPARSE-BOTH-PATTERNS-WIN') }
+    'FolderA/a1.txt'             = @{ ExpectIn = @('FULL-CHECKOUT') }
+    'FolderA/a2.txt'             = @{ ExpectIn = @('FULL-CHECKOUT') }
+    'FolderB/b1.txt'             = @{ ExpectIn = @('FULL-CHECKOUT') }
+    'FolderB/b2.txt'             = @{ ExpectIn = @('FULL-CHECKOUT') }
+    'RootFile1.yml'              = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES') }
+    'RootFile2.yml'              = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES') }
+    'config.json'                = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES') }
+    'root-notes.txt'             = @{ ExpectIn = @('FULL-CHECKOUT', 'SPARSE-DIRECTORIES') }
 }
 
 # ---------------------------------------------------------------------------
@@ -62,14 +62,14 @@ function Write-Section([string]$title) {
 # Helper: check a sentinel file and return result object
 # ---------------------------------------------------------------------------
 function Test-Sentinel([string]$relativePath, [string[]]$expectIn, [string]$mode) {
-    $fullPath  = Join-Path $sourcesDir ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-    $exists    = Test-Path -LiteralPath $fullPath -PathType Leaf
-    $expected  = $expectIn -contains $mode
+    $fullPath = Join-Path $sourcesDir ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+    $exists = Test-Path -LiteralPath $fullPath -PathType Leaf
+    $expected = $expectIn -contains $mode
 
-    $outcome   = if ($expected -and $exists)      { 'PASS' }
-                 elseif (!$expected -and !$exists) { 'PASS' }
-                 elseif ($expected -and !$exists)  { 'FAIL-MISSING' }
-                 else                              { 'FAIL-UNEXPECTED' }
+    $outcome = if ($expected -and $exists) { 'PASS' }
+    elseif (!$expected -and !$exists) { 'PASS' }
+    elseif ($expected -and !$exists) { 'FAIL-MISSING' }
+    else { 'FAIL-UNEXPECTED' }
 
     return [PSCustomObject]@{
         Path     = $relativePath
@@ -95,7 +95,7 @@ Write-Host "HOSTNAME           : $env:COMPUTERNAME"
 Write-Section "TOP-LEVEL DIRECTORIES"
 try {
     $dirs = Get-ChildItem -LiteralPath $sourcesDir -Directory -ErrorAction Stop |
-            Sort-Object Name
+        Sort-Object Name
     if ($dirs.Count -eq 0) {
         Write-Host "DIR_ENUM           : (no directories found)"
     }
@@ -113,7 +113,7 @@ try {
 Write-Section "TOP-LEVEL FILES"
 try {
     $rootFiles = Get-ChildItem -LiteralPath $sourcesDir -File -ErrorAction Stop |
-                 Sort-Object Name
+        Sort-Object Name
     if ($rootFiles.Count -eq 0) {
         Write-Host "FILE_ENUM          : (no root-level files found)"
     }
@@ -133,15 +133,15 @@ Write-Host ""
 Write-Host ("{0,-45} {1,-8} {2,-10} {3}" -f "PATH", "EXISTS", "EXPECTED", "OUTCOME")
 Write-Host ("{0,-45} {1,-8} {2,-10} {3}" -f ('-' * 44), ('─' * 7), ('─' * 9), ('─' * 14))
 
-$results    = [System.Collections.Generic.List[object]]::new()
-$passCount  = 0
-$failCount  = 0
+$results = [System.Collections.Generic.List[object]]::new()
+$passCount = 0
+$failCount = 0
 
 foreach ($entry in $sentinels.GetEnumerator()) {
     $r = Test-Sentinel -relativePath $entry.Key -expectIn $entry.Value.ExpectIn -mode $sparseMode
     $results.Add($r)
 
-    $existsTxt   = if ($r.Present)  { 'YES' }  else { 'NO' }
+    $existsTxt = if ($r.Present) { 'YES' }  else { 'NO' }
     $expectedTxt = if ($r.Expected) { 'YES' }  else { 'NO' }
     Write-Host ("{0,-45} {1,-8} {2,-10} {3}" -f $r.Path, $existsTxt, $expectedTxt, $r.Outcome)
 
@@ -162,7 +162,7 @@ foreach ($rel in $spotFiles) {
     $fp = Join-Path $sourcesDir ($rel -replace '/', [System.IO.Path]::DirectorySeparatorChar)
     if (Test-Path -LiteralPath $fp -PathType Leaf) {
         $sentinel = Select-String -LiteralPath $fp -Pattern 'SENTINEL:' -ErrorAction SilentlyContinue |
-                    Select-Object -First 1
+            Select-Object -First 1
         $tag = if ($sentinel) { $sentinel.Line.Trim() } else { '(no SENTINEL line found)' }
         Write-Host "CONTENT_CHECK      : $rel -> $tag"
     } else {
