@@ -82,6 +82,7 @@ jobs:
       # C2. Record environment
       # -----------------------------------------------------------------------
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           Write-Host "JOB_NAME            : CONTROL_BrokenBehavior"
           Write-Host "AGENT_VERSION       : $(Agent.Version)"
           Write-Host "AGENT_OS            : $(Agent.OS)"
@@ -97,6 +98,7 @@ jobs:
       #     On cloud/fixed:  FolderA/ and FolderB/ would be ABSENT.
       # -----------------------------------------------------------------------
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           $src = "$(Build.SourcesDirectory)"
 
           Write-Host "========================================================================"
@@ -121,10 +123,14 @@ jobs:
           Write-Host ""
 
           # Git sparse state
+          # Note: git config returns exit 1 when key is unset; git sparse-checkout list
+          #       returns exit 128 when the repo is not sparse — both are expected for
+          #       the CONTROL job. Capture output; ignore exit codes.
           Push-Location $src
-          $coneMode   = & git config core.sparseCheckoutCone 2>&1
-          $sparseFlag = & git config core.sparseCheckout 2>&1
-          $sparseList = & git sparse-checkout list 2>&1
+          $coneMode   = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
+          $sparseFlag = (& git config core.sparseCheckout   2>&1); $LASTEXITCODE = 0
+          $sparseListRaw = (& git sparse-checkout list 2>&1); $LASTEXITCODE = 0
+          $sparseList = if ($sparseListRaw -match 'fatal|error') { '(not sparse)' } else { $sparseListRaw }
           Pop-Location
 
           Write-Host "GIT_CONE_MODE       : $(if ($coneMode) {$coneMode} else {'(empty - sparse never initialised)'})"
@@ -140,11 +146,11 @@ jobs:
               Write-Host "CONTROL_VERDICT     : FAIL-AS-EXPECTED"
               Write-Host "CONTROL_MEANING     : sparseCheckoutDirectories silently ignored (Finding 2 confirmed)"
               Write-Host "##[warning]CONTROL job FAIL-AS-EXPECTED: full clone performed despite sparse property set."
-              echo "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL-AS-EXPECTED"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL-AS-EXPECTED"
           } else {
               Write-Host "CONTROL_VERDICT     : UNEXPECTED-PASS"
               Write-Host "CONTROL_MEANING     : sparse checkout appeared to work - task may have been patched"
-              echo "##vso[task.setvariable variable=jobVerdict;isOutput=true]UNEXPECTED-PASS"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]UNEXPECTED-PASS"
           }
         displayName: "Inspect workspace and record control verdict"
         name: ControlVerdict
@@ -176,6 +182,7 @@ jobs:
       #     task does not call it.
       # -----------------------------------------------------------------------
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           $src = "$(Build.SourcesDirectory)"
           Write-Host "WORKAROUND_APPROACH : A - post-checkout prune"
           Write-Host "SPARSE_DIR_TARGET   : $(sparseDir)"
@@ -196,8 +203,8 @@ jobs:
               Pop-Location; exit 1
           }
 
-          $list     = & git sparse-checkout list 2>&1
-          $coneMode = & git config core.sparseCheckoutCone 2>&1
+          $list     = (& git sparse-checkout list 2>&1); $LASTEXITCODE = 0
+          $coneMode = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
           Write-Host "GIT_SPARSE_LIST     : $list"
           Write-Host "GIT_CONE_MODE       : $coneMode"
 
@@ -210,6 +217,7 @@ jobs:
       # A3. Validate: CDN/ present, FolderA/ absent, FolderB/ absent.
       # -----------------------------------------------------------------------
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           $src = "$(Build.SourcesDirectory)"
 
           Write-Host "========================================================================"
@@ -239,8 +247,8 @@ jobs:
           Write-Host ""
 
           Push-Location $src
-          $coneMode = & git config core.sparseCheckoutCone 2>&1
-          $sparseList = & git sparse-checkout list 2>&1
+          $coneMode   = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
+          $sparseList = (& git sparse-checkout list 2>&1);           $LASTEXITCODE = 0
           Pop-Location
 
           Write-Host "GIT_CONE_MODE       : $(if ($coneMode -eq 'true') {'true - PASS'} else {"$coneMode - UNEXPECTED"})"
@@ -266,12 +274,12 @@ jobs:
           if ($allPass) {
               Write-Host "WORKAROUND_RESULT   : PASS"
               Write-Host "WORKAROUND_MEANING  : Approach A successfully applied sparse working tree"
-              echo "##vso[task.setvariable variable=jobVerdict;isOutput=true]PASS"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]PASS"
           } else {
               Write-Host "WORKAROUND_RESULT   : FAIL"
               Write-Host "WORKAROUND_MEANING  : One or more checks failed - see above"
               Write-Host "##[error]Workaround A validation FAILED. See CHECK lines above."
-              echo "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL"
           }
         displayName: "Validate sparse workspace (Approach A)"
         name: WorkaroundAVerdict
@@ -326,6 +334,7 @@ jobs:
       #     directory.  Instead we delete its CONTENTS except .git/.
       # -----------------------------------------------------------------------
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           $src          = "$(Build.SourcesDirectory)"
           $sparseTarget = "$(sparseDir)"
 
@@ -366,8 +375,8 @@ jobs:
               Pop-Location; exit 1
           }
 
-          $coneMode   = & git config core.sparseCheckoutCone 2>&1
-          $sparseList = & git sparse-checkout list 2>&1
+          $coneMode   = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
+          $sparseList = (& git sparse-checkout list 2>&1);           $LASTEXITCODE = 0
           Write-Host "GIT_CONE_MODE       : $coneMode"
           Write-Host "GIT_SPARSE_LIST     : $sparseList"
 
@@ -380,6 +389,7 @@ jobs:
       # B3. Validate — identical five-point criteria as Approach A.
       # -----------------------------------------------------------------------
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           $src = "$(Build.SourcesDirectory)"
 
           Write-Host "========================================================================"
@@ -405,8 +415,8 @@ jobs:
           Write-Host ""
 
           Push-Location $src
-          $coneMode   = & git config core.sparseCheckoutCone 2>&1
-          $sparseList = & git sparse-checkout list 2>&1
+          $coneMode   = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
+          $sparseList = (& git sparse-checkout list 2>&1);           $LASTEXITCODE = 0
           Pop-Location
 
           Write-Host "GIT_CONE_MODE       : $(if ($coneMode -eq 'true') {'true - PASS'} else {"$coneMode - UNEXPECTED"})"
@@ -431,12 +441,12 @@ jobs:
           if ($allPass) {
               Write-Host "WORKAROUND_RESULT   : PASS"
               Write-Host "WORKAROUND_MEANING  : Approach B successfully produced a sparse working tree"
-              echo "##vso[task.setvariable variable=jobVerdict;isOutput=true]PASS"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]PASS"
           } else {
               Write-Host "WORKAROUND_RESULT   : FAIL"
               Write-Host "WORKAROUND_MEANING  : One or more checks failed - see above"
               Write-Host "##[error]Workaround B validation FAILED. See CHECK lines above."
-              echo "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL"
           }
         displayName: "Validate sparse workspace (Approach B)"
         name: WorkaroundBVerdict
@@ -464,6 +474,7 @@ jobs:
         displayName: "No checkout needed for summary"
 
       - powershell: |
+          $ErrorActionPreference = 'Continue'
           $ctrl = "$(controlVerdict)"
           $wkA  = "$(workaroundAResult)"
           $wkB  = "$(workaroundBResult)"
