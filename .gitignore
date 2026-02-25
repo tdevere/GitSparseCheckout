@@ -29,6 +29,11 @@ inspection-output-*.txt
 _work/
 agent/
 
+# ----- Local environment / secrets (never commit) ------------------
+.env.local
+.env.*.local
+*.pat
+
 # ----- Node / npm (not used here, exclude if accidentally created) --
 node_modules/
 package-lock.json
