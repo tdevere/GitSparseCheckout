@@ -48,9 +48,9 @@ pr: none
 
 variables:
   - name: agentPoolName
-    value: "Default"      # ← Change to your self-hosted pool name
+    value: "Default" # ← Change to your self-hosted pool name
   - name: sparseDir
-    value: "CDN"          # Target directory for all sparse jobs
+    value: "CDN" # Target directory for all sparse jobs
 
 pool:
   name: $(agentPoolName)
@@ -67,7 +67,6 @@ jobs:
       - name: jobVerdict
         value: "NOT-RUN"
     steps:
-
       # -----------------------------------------------------------------------
       # C1. Checkout with sparseCheckoutDirectories set — this is broken.
       #     The property will be silently ignored on Server 2025.
@@ -156,9 +155,9 @@ jobs:
         name: ControlVerdict
         continueOnError: true
 
-# =============================================================================
-# JOB 2 — TEST: Workaround A (post-checkout prune)
-# =============================================================================
+  # =============================================================================
+  # JOB 2 — TEST: Workaround A (post-checkout prune)
+  # =============================================================================
   - job: TEST_WorkaroundA
     displayName: "TEST A: Post-checkout prune workaround"
     workspace:
@@ -167,7 +166,6 @@ jobs:
       - name: jobVerdict
         value: "NOT-RUN"
     steps:
-
       # -----------------------------------------------------------------------
       # A1. Full checkout — no sparse properties (they are broken; omit them).
       # -----------------------------------------------------------------------
@@ -286,23 +284,23 @@ jobs:
         condition: always()
         continueOnError: true
 
-# =============================================================================
-# JOB 3 — TEST: Workaround B (sparse checkout from a wiped working tree)
-#
-# APPROACH:
-#   checkout: self (fetchDepth:1, persistCredentials:true) populates the git
-#   object store and establishes credentials.  We then DELETE every file in
-#   the working tree (but NOT .git/ itself, which preserves the credential
-#   helper set up by the agent).  With an empty working tree we apply
-#   sparse-checkout config and run "git checkout HEAD" which materialises
-#   only the requested directory — proving git honours sparse-checkout at the
-#   git.exe level, independent of the ADO task property.
-#
-# WHY NOT checkout:none + System.AccessToken:
-#   On ADO Server 2025 the "Allow scripts to access OAuth token" project
-#   setting is off by default.  Using checkout:self + persistCredentials:true
-#   avoids that dependency and keeps the test self-contained.
-# =============================================================================
+  # =============================================================================
+  # JOB 3 — TEST: Workaround B (sparse checkout from a wiped working tree)
+  #
+  # APPROACH:
+  #   checkout: self (fetchDepth:1, persistCredentials:true) populates the git
+  #   object store and establishes credentials.  We then DELETE every file in
+  #   the working tree (but NOT .git/ itself, which preserves the credential
+  #   helper set up by the agent).  With an empty working tree we apply
+  #   sparse-checkout config and run "git checkout HEAD" which materialises
+  #   only the requested directory — proving git honours sparse-checkout at the
+  #   git.exe level, independent of the ADO task property.
+  #
+  # WHY NOT checkout:none + System.AccessToken:
+  #   On ADO Server 2025 the "Allow scripts to access OAuth token" project
+  #   setting is off by default.  Using checkout:self + persistCredentials:true
+  #   avoids that dependency and keeps the test self-contained.
+  # =============================================================================
   - job: TEST_WorkaroundB
     displayName: "TEST B: git sparse-checkout from a wiped working tree"
     workspace:
@@ -311,7 +309,6 @@ jobs:
       - name: jobVerdict
         value: "NOT-RUN"
     steps:
-
       # -----------------------------------------------------------------------
       # B1. Minimal checkout — establishes the git object store and the ADO
       #     credential helper in .git/config.
@@ -454,30 +451,213 @@ jobs:
         continueOnError: true
 
 # =============================================================================
-# JOB 4 — SUMMARY (depends on all three jobs; always runs)
-# =============================================================================
+  # JOB 4 — TEST: Workaround B Efficient (true sparse network clone)
+  #
+  # This is the PERFORMANCE-PREFERRED workaround.
+  #
+  # APPROACH:
+  #   checkout:none so the ADO task touches nothing.
+  #   workspace:clean:all ensures $src is an empty directory — no Remove-Item
+  #   needed, which avoids the locked-directory problem.
+  #   We git-init directly in $src, configure sparse-checkout BEFORE any
+  #   fetch (so git only materialises the CDN subtree), then fetch with
+  #   --filter=blob:none so only CDN blobs cross the network.
+  #
+  #   On a large repo this can reduce network transfer by an order of
+  #   magnitude vs. Workaround A.
+  #
+  # AUTH:
+  #   System.AccessToken is injected via env: mapping at the step level.
+  #   The pipeline must have the 'Allow scripts to access OAuth token'
+  #   option enabled (set in pipeline definition options).
+  # =============================================================================
+  - job: TEST_WorkaroundB_Efficient
+    displayName: "TEST B-Efficient: true sparse clone (--filter=blob:none, preferred)"
+    workspace:
+      clean: all
+    variables:
+      - name: jobVerdict
+        value: "NOT-RUN"
+    steps:
+
+      # -----------------------------------------------------------------------
+      # BE-1. Skip the broken task entirely — do not let it touch the repo.
+      # -----------------------------------------------------------------------
+      - checkout: none
+        displayName: "Skip Get sources (checkout:none)"
+
+      # -----------------------------------------------------------------------
+      # BE-2. Sparse clone: configure BEFORE fetch so only CDN blobs transfer.
+      #        workspace:clean:all has already created $src as an empty dir.
+      #        PS process CWD is $src but the directory is empty, so git init
+      #        works without needing to delete anything.
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $src    = "$(Build.SourcesDirectory)"
+          $repo   = "$(Build.Repository.Uri)"
+          $branch = "$(Build.SourceBranch)" -replace '^refs/heads/', ''
+          $token  = $env:SYSTEM_ACCESSTOKEN
+          $sparseTarget = "$(sparseDir)"
+
+          Write-Host "WORKAROUND_APPROACH : B-Efficient - true sparse clone"
+          Write-Host "SPARSE_DIR_TARGET   : $sparseTarget"
+          Write-Host "REPO_URL            : $repo"
+          Write-Host "BRANCH              : $branch"
+
+          if (-not $token) {
+              Write-Host "##[error]SYSTEM_ACCESSTOKEN is empty."
+              Write-Host "##[error]Enable 'Allow scripts to access OAuth token' in the pipeline options."
+              exit 1
+          }
+          Write-Host "TOKEN_PRESENT       : YES"
+
+          $b64        = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+          $authHeader = "Authorization: Basic $b64"
+
+          # $src is an empty dir created by the agent (workspace:clean:all).
+          # The PS process CWD is already $src — no cd needed.
+          Push-Location $src
+
+          Write-Host "--- git init ---"
+          & git init
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[error]git init failed"; Pop-Location; exit 1 }
+
+          Write-Host "--- git remote add origin ---"
+          & git remote add origin $repo
+
+          Write-Host "--- git sparse-checkout init --cone (BEFORE fetch) ---"
+          & git sparse-checkout init --cone
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[error]sparse-checkout init failed"; Pop-Location; exit 1 }
+
+          Write-Host "--- git sparse-checkout set $sparseTarget ---"
+          & git sparse-checkout set $sparseTarget
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[error]sparse-checkout set failed"; Pop-Location; exit 1 }
+
+          # Fetch with blob:none partial-clone filter — only CDN blobs cross
+          # the wire. Fall back to full fetch if the server doesn't support it.
+          Write-Host "--- git fetch --filter=blob:none --depth=1 ---"
+          & git -c "http.extraheader=$authHeader" fetch --filter=blob:none --no-tags --depth=1 origin $branch
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "##[warning]blob:none filter rejected by server (code $LASTEXITCODE) - retrying without filter"
+              & git -c "http.extraheader=$authHeader" fetch --no-tags --depth=1 origin $branch
+              if ($LASTEXITCODE -ne 0) { Write-Host "##[error]fetch failed on retry"; Pop-Location; exit 1 }
+              Write-Host "FETCH_FILTER        : NONE (server does not support partial clone)"
+          } else {
+              Write-Host "FETCH_FILTER        : blob:none (only sparse subtree blobs fetched)"
+          }
+
+          Write-Host "--- git checkout FETCH_HEAD ---"
+          & git checkout FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[error]git checkout FETCH_HEAD failed"; Pop-Location; exit 1 }
+
+          $coneMode   = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
+          $sparseList = (& git sparse-checkout list 2>&1);           $LASTEXITCODE = 0
+          Write-Host "GIT_CONE_MODE       : $coneMode"
+          Write-Host "GIT_SPARSE_LIST     : $sparseList"
+
+          Pop-Location
+          Write-Host "APPLY_STATUS        : true sparse clone complete"
+        displayName: "True sparse clone (Approach B-Efficient)"
+        continueOnError: false
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      # -----------------------------------------------------------------------
+      # BE-3. Validate — same five-point criteria as A and B.
+      # -----------------------------------------------------------------------
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $src = "$(Build.SourcesDirectory)"
+
+          Write-Host "========================================================================"
+          Write-Host "  WORKAROUND B-EFFICIENT - WORKSPACE VALIDATION"
+          Write-Host "========================================================================"
+          Write-Host ""
+
+          $dirs = Get-ChildItem -LiteralPath $src -Directory -ErrorAction SilentlyContinue | Sort-Object Name
+          foreach ($d in $dirs) { Write-Host "DIR_PRESENT         : $($d.Name)/" }
+          Write-Host "DIR_COUNT           : $($dirs.Count)"
+          Write-Host ""
+
+          $cdnPresent     = Test-Path (Join-Path $src "CDN\cdnfile1.txt")
+          $folderAPresent = Test-Path (Join-Path $src "FolderA\a1.txt")
+          $folderBPresent = Test-Path (Join-Path $src "FolderB\b1.txt")
+
+          $cdnContent  = if ($cdnPresent) { Get-Content (Join-Path $src "CDN\cdnfile1.txt") -Raw -ErrorAction SilentlyContinue } else { "" }
+          $cdnReadable = $cdnContent -match "SENTINEL:"
+
+          Write-Host "SENTINEL_CDN        : $(if ($cdnPresent) {'PRESENT'} else {'ABSENT'})  $(if ($cdnReadable) {'(content readable, SENTINEL confirmed)'} else {'(not readable)'})"
+          Write-Host "SENTINEL_FOLDERA    : $(if ($folderAPresent) {'PRESENT - UNEXPECTED'} else {'ABSENT - PASS'})"
+          Write-Host "SENTINEL_FOLDERB    : $(if ($folderBPresent) {'PRESENT - UNEXPECTED'} else {'ABSENT - PASS'})"
+          Write-Host ""
+
+          Push-Location $src
+          $coneMode   = (& git config core.sparseCheckoutCone 2>&1); $LASTEXITCODE = 0
+          $sparseList = (& git sparse-checkout list 2>&1);           $LASTEXITCODE = 0
+          Pop-Location
+
+          Write-Host "GIT_CONE_MODE       : $(if ($coneMode -eq 'true') {'true - PASS'} else {"$coneMode - UNEXPECTED"})"
+          Write-Host "GIT_SPARSE_LIST     : $sparseList"
+          Write-Host ""
+
+          $checks = [ordered]@{
+              "CDN present"            = $cdnPresent
+              "CDN content readable"   = $cdnReadable
+              "FolderA absent"         = (-not $folderAPresent)
+              "FolderB absent"         = (-not $folderBPresent)
+              "cone mode active"       = ($coneMode -eq 'true')
+          }
+
+          $allPass = $true
+          foreach ($check in $checks.GetEnumerator()) {
+              $r = if ($check.Value) { "PASS" } else { "FAIL"; $allPass = $false }
+              Write-Host "CHECK               : $($check.Key.PadRight(25)) $r"
+          }
+          Write-Host ""
+
+          if ($allPass) {
+              Write-Host "WORKAROUND_RESULT   : PASS"
+              Write-Host "WORKAROUND_MEANING  : B-Efficient sparse clone successful - only CDN subtree materialised"
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]PASS"
+          } else {
+              Write-Host "WORKAROUND_RESULT   : FAIL"
+              Write-Host "WORKAROUND_MEANING  : One or more checks failed - see above"
+              Write-Host "##[error]Workaround B-Efficient validation FAILED. See CHECK lines above."
+              Write-Host "##vso[task.setvariable variable=jobVerdict;isOutput=true]FAIL"
+          }
+        displayName: "Validate sparse workspace (Approach B-Efficient)"
+        name: WorkaroundBEfficientVerdict
+        condition: always()
+        continueOnError: true
+
+  # =============================================================================
+  # JOB 5 — SUMMARY (depends on all four jobs; always runs)
+  # =============================================================================
   - job: SUMMARY
     displayName: "SUMMARY: Workaround test results"
     dependsOn:
       - CONTROL_BrokenBehavior
       - TEST_WorkaroundA
       - TEST_WorkaroundB
+      - TEST_WorkaroundB_Efficient
     condition: always()
     workspace:
       clean: all
     variables:
-      controlVerdict:    $[ dependencies.CONTROL_BrokenBehavior.outputs['ControlVerdict.jobVerdict'] ]
-      workaroundAResult: $[ dependencies.TEST_WorkaroundA.outputs['WorkaroundAVerdict.jobVerdict'] ]
-      workaroundBResult: $[ dependencies.TEST_WorkaroundB.outputs['WorkaroundBVerdict.jobVerdict'] ]
+      controlVerdict:      $[ dependencies.CONTROL_BrokenBehavior.outputs['ControlVerdict.jobVerdict'] ]
+      workaroundAResult:   $[ dependencies.TEST_WorkaroundA.outputs['WorkaroundAVerdict.jobVerdict'] ]
+      workaroundBResult:   $[ dependencies.TEST_WorkaroundB.outputs['WorkaroundBVerdict.jobVerdict'] ]
+      workaroundBEffResult: $[ dependencies.TEST_WorkaroundB_Efficient.outputs['WorkaroundBEfficientVerdict.jobVerdict'] ]
     steps:
       - checkout: none
         displayName: "No checkout needed for summary"
 
       - powershell: |
           $ErrorActionPreference = 'Continue'
-          $ctrl = "$(controlVerdict)"
-          $wkA  = "$(workaroundAResult)"
-          $wkB  = "$(workaroundBResult)"
+          $ctrl   = "$(controlVerdict)"
+          $wkA    = "$(workaroundAResult)"
+          $wkB    = "$(workaroundBResult)"
 
           Write-Host ""
           Write-Host "======================================================================"
@@ -496,32 +676,39 @@ jobs:
               Write-Host ("  {0,-28} {1,-20}  {2,-20}  {3}" -f $label, $result, $expected, $match)
           }
 
-          Format-ResultLine "CONTROL (broken property)"  $ctrl "FAIL-AS-EXPECTED"
-          Format-ResultLine "Workaround A (post-prune)"  $wkA  "PASS"
-          Format-ResultLine "Workaround B (manual clone)" $wkB  "PASS"
+          $wkBEff = "$(workaroundBEffResult)"
+
+          Format-ResultLine "CONTROL (broken property)"       $ctrl "FAIL-AS-EXPECTED"
+          Format-ResultLine "Workaround A (post-prune)"        $wkA  "PASS"
+          Format-ResultLine "Workaround B (wipe+re-checkout)"  $wkB  "PASS"
+          Format-ResultLine "Workaround B-Efficient (filter)"  $wkBEff "PASS"
 
           Write-Host ""
 
-          $ctrlOk = $ctrl -eq "FAIL-AS-EXPECTED"
-          $wkAOk  = $wkA  -eq "PASS"
-          $wkBOk  = $wkB  -eq "PASS"
+          $ctrlOk   = $ctrl   -eq "FAIL-AS-EXPECTED"
+          $wkAOk    = $wkA    -eq "PASS"
+          $wkBOk    = $wkB    -eq "PASS"
+          $wkBEffOk = $wkBEff -eq "PASS"
 
-          Write-Host "SUMMARY_CONTROL_VERDICT  : $ctrl  $(if ($ctrlOk) {'(correct - bug confirmed)'} else {'(unexpected - check control job)'})"
-          Write-Host "SUMMARY_WORKAROUND_A     : $wkA   $(if ($wkAOk)  {'(workaround effective)'} else {'(workaround FAILED)'})"
-          Write-Host "SUMMARY_WORKAROUND_B     : $wkB   $(if ($wkBOk)  {'(workaround effective)'} else {'(workaround FAILED)'})"
+          Write-Host "SUMMARY_CONTROL_VERDICT  : $ctrl    $(if ($ctrlOk)   {'(correct - bug confirmed)'}   else {'(unexpected - check control job)'})"
+          Write-Host "SUMMARY_WORKAROUND_A     : $wkA     $(if ($wkAOk)    {'(workaround effective)'}      else {'(workaround FAILED)'})"
+          Write-Host "SUMMARY_WORKAROUND_B     : $wkB     $(if ($wkBOk)    {'(workaround effective)'}      else {'(workaround FAILED)'})"
+          Write-Host "SUMMARY_WORKAROUND_BEFF  : $wkBEff  $(if ($wkBEffOk) {'(PREFERRED - filter clone OK)'} else {'(workaround FAILED)'})"
           Write-Host ""
 
-          if ($ctrlOk -and $wkAOk -and $wkBOk) {
+          if ($ctrlOk -and $wkAOk -and $wkBOk -and $wkBEffOk) {
               Write-Host "OVERALL_VERDICT          : PASS"
-              Write-Host "OVERALL_MEANING          : Bug confirmed on Server 2025; both workarounds proven effective."
+              Write-Host "OVERALL_MEANING          : Bug confirmed; all workarounds proven effective. B-Efficient is preferred for large repos."
           } elseif (-not $ctrlOk) {
               Write-Host "OVERALL_VERDICT          : INCONCLUSIVE"
               Write-Host "OVERALL_MEANING          : Control job did not show expected broken behaviour."
               Write-Host "                           The task may have been patched. Re-run on confirmed 20.256.36719.x."
           } else {
-              Write-Host "OVERALL_VERDICT          : FAIL"
-              Write-Host "OVERALL_MEANING          : One or more workarounds did not produce a sparse workspace."
-              Write-Host "                           Review the failing job logs for details."
+              Write-Host "OVERALL_VERDICT          : PARTIAL"
+              Write-Host "OVERALL_MEANING          : Some workarounds failed. Review individual job logs."
+              if (-not $wkBEffOk) {
+                  Write-Host "NOTE                     : B-Efficient requires 'Allow scripts to access OAuth token' to be enabled."
+              }
           }
 
           Write-Host ""
